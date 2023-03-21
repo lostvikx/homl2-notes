@@ -34,9 +34,21 @@ model = linear_model.LinearRegression()
 # %%
 model.fit(X,y)
 # %%
-gdp_india = [[gdp.loc["Cyprus"]["2018"]]]
-print(f"GDP per Capita: {gdp_india}")
-y_pred = model.predict(gdp_india) # out: [[5.81941053]]
-print(f"Life Satisfaction: {y_pred}")
+test_gdp = [[gdp.loc["Cyprus"]["2018"]]]
+print(f"GDP per Capita of Cyprus: {test_gdp}")
+y_pred = model.predict(test_gdp) # out: [[5.81941053]]
+print(f"Life Satisfaction Score: {y_pred}")
 # %% [markdown]
 # Conclusion: If everything goes well, our model will make good predictions. If not, we may require more attributes (such as employment rate, health, air pollution, etc.), to get more or better quality training data. Or we could use a more powerful model, e.g. Polynomial Regression.
+# %%
+bias,weights = model.intercept_,model.coef_
+print(bias,weights)
+#%%
+sns.scatterplot(data=country_stats,x="gdp_per_capita",y="life_satisfaction")
+best_fit = bias[0] + (weights[0][0]*X)
+plt.plot(X,best_fit)
+# plt.scatter(test_gdp[0],y_pred[0],color="brown")
+plt.title("GDP per capita vs. Life satisfaction")
+plt.xlabel("GDP per capita ($)")
+plt.ylabel("Life satisfaction")
+plt.show()
