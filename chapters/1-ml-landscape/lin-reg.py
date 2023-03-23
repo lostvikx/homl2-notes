@@ -9,12 +9,12 @@ sns.set_context("paper",rc={"font.size":10,"axes.titlesize":12}) # plt.rcParams
 sns.set_style("dark")
 sns.set_palette(palette="muted")
 #%%
-oecd = pd.read_csv("../../data/oecd_life.csv").iloc[:,[1,14]]
+oecd = pd.read_csv("data/oecd_life.csv").iloc[:,[1,14]]
 oecd = oecd.set_index("Country")
 print(oecd.shape)
 oecd.head()
 #%%
-gdp = pd.read_csv("../../data/gdp.csv").iloc[:,[0,2]]
+gdp = pd.read_csv("data/gdp.csv").iloc[:,[0,2]]
 gdp = gdp[gdp["Country"].notna()]
 gdp = gdp.set_index("Country")
 gdp.head()
