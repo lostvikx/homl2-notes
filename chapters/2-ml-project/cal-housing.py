@@ -142,6 +142,27 @@ plt.show()
 # %% [markdown]
 # Attribute Combination: rooms_per_household, bedrooms_per_room, and population_per_household.
 # %%
+# Data Cleaning (Should have done this earlier)
+# We know that total_bedrooms attribute has some missing values, we need to fix this.
+# housing.dropna(subset=["total_bedrooms"]) # Option 1: drop instances with na values
+# housing.drop("total_bedrooms",axis=1) # Option 2: drop the entire attribute
+# housing["total_bedrooms"].fillna(housing["total_bedrooms"].median(),inplace=True) # Option 3: fill na values with the median of that attribute.
+# %%
+from sklearn.impute import SimpleImputer
+
+def fill_missing_values(data,strategy="median"):
+  imputer = SimpleImputer(strategy=strategy)
+  data_num = data.select_dtypes(include=np.number)
+  data_non_num = housing.select_dtypes(exclude=np.number)
+  imputer.fit(data_num)
+  print(imputer.statistics_)
+  print(data_num.median(numeric_only=True).values)
+  X = imputer.transform(data_num)
+  data_tf = pd.DataFrame(X,columns=data_num.columns,index=data_num.index)
+  return pd.merge(data_tf,data_non_num,left_index=True,right_index=True)
+
+housing = fill_missing_values(housing)
+# %%
 housing["rooms_per_household"] = housing["total_rooms"] / housing["households"]
 housing["bedrooms_per_room"] = housing["total_bedrooms"] / housing["total_rooms"]
 housing["population_per_household"] = housing["population"] / housing["households"]
