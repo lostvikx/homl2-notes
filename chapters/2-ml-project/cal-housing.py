@@ -265,3 +265,4 @@ housing_prepared = full_pipeline.fit_transform(housing)
 # attributes: 9 + 3 (adder transform) + 4 (onehotencoder) = 16
 housing_prepared.shape
 # %%
+# https://github.com/ageron/handson-ml2/blob/master/02_end_to_end_machine_learning_project.ipynb
