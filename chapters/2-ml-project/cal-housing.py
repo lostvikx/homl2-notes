@@ -102,7 +102,7 @@ compare_sampling
 for set_ in (strat_train_set,strat_test_set,housing):
   set_.drop("income_cat",axis=1,inplace=True)
 # %%
-# housing = strat_train_set.copy()
+housing = strat_train_set.copy()
 # %%
 housing.plot(kind="scatter",x="longitude",y="latitude")
 plt.title("California Housing Data")
@@ -139,6 +139,18 @@ plt.show()
 attributes = ["median_house_value","median_income","total_rooms","housing_median_age"]
 pd.plotting.scatter_matrix(housing[attributes],figsize=(12,8))
 plt.show()
+# %%
+housing["rooms_per_household"] = housing["total_rooms"] / housing["households"]
+housing["bedrooms_per_room"] = housing["total_bedrooms"] / housing["total_rooms"]
+housing["population_per_household"] = housing["population"] / housing["households"]
+housing.head()
+# %%
+corr_matrix = housing.corr(numeric_only=True)
+corr_matrix["median_house_value"].sort_values(ascending=False)
+# %%
+housing = strat_train_set.drop("median_house_value",axis=1)
+housing_labels = strat_train_set["median_house_value"].copy()
+housing.head()
 # %% [markdown]
 # Attribute Combination: rooms_per_household, bedrooms_per_room, and population_per_household.
 # %%
@@ -150,24 +162,106 @@ plt.show()
 # %%
 from sklearn.impute import SimpleImputer
 
-def fill_missing_values(data,strategy="median"):
-  imputer = SimpleImputer(strategy=strategy)
-  data_num = data.select_dtypes(include=np.number)
-  data_non_num = housing.select_dtypes(exclude=np.number)
-  imputer.fit(data_num)
-  print(imputer.statistics_)
-  print(data_num.median(numeric_only=True).values)
-  X = imputer.transform(data_num)
-  data_tf = pd.DataFrame(X,columns=data_num.columns,index=data_num.index)
-  return pd.merge(data_tf,data_non_num,left_index=True,right_index=True)
+# def fill_missing_values(data,strategy="median"):
+#   imputer = SimpleImputer(strategy=strategy)
+#   data_num = data.select_dtypes(include=np.number)
+#   data_non_num = housing.select_dtypes(exclude=np.number)
+#   imputer.fit(data_num)
+#   print(imputer.statistics_)
+#   print(data_num.median(numeric_only=True).values)
+#   X = imputer.transform(data_num)
+#   data_tf = pd.DataFrame(X,columns=data_num.columns,index=data_num.index)
+#   return pd.merge(data_tf,data_non_num,left_index=True,right_index=True)
 
-housing = fill_missing_values(housing)
+# housing = fill_missing_values(housing)
+imputer = SimpleImputer(strategy="median")
+housing_num = housing.drop("ocean_proximity",axis=1)
+imputer.fit(housing_num)
+X = imputer.transform(housing_num)
+housing_tr = pd.DataFrame(X,columns=housing_num.columns,index=housing_num.index)
+housing_tr.head()
 # %%
-housing["rooms_per_household"] = housing["total_rooms"] / housing["households"]
-housing["bedrooms_per_room"] = housing["total_bedrooms"] / housing["total_rooms"]
-housing["population_per_household"] = housing["population"] / housing["households"]
-housing.head()
+# Handling categorical data
+housing_cat = housing[["ocean_proximity"]]
+housing_cat.head()
 # %%
-corr_matrix = housing.corr(numeric_only=True)
-corr_matrix["median_house_value"].sort_values(ascending=False)
+housing_cat.value_counts().plot(kind="barh")
+plt.show()
+# %%
+# If we had ordinal data:
+from sklearn.preprocessing import OrdinalEncoder
+
+ordinal_encoder = OrdinalEncoder()
+housing_cat_encoder = ordinal_encoder.fit_transform(housing_cat)
+housing_cat_encoder[:5]
+# %%
+ordinal_encoder.categories_
+# %%
+from sklearn.preprocessing import OneHotEncoder
+
+cat_encoder = OneHotEncoder()
+housing_cat_1hot = cat_encoder.fit_transform(housing_cat)
+housing_cat_1hot
+# %%
+housing_cat_1hot.toarray()
+# %%
+cat_encoder.categories_
+# %% [markdown]
+# Using a Custom Transformer to add new attributes (done previously) like rooms_per_household and etc.
+# %%
+from sklearn.base import BaseEstimator, TransformerMixin
+
+rooms_ix,bedrooms_ix,population_ix,household_ix = 3,4,5,6
+
+class CombinedAttributesAdder(BaseEstimator,TransformerMixin):
+  def __init__(self,add_bedrooms_per_room=True):
+    self.add_bedrooms_per_room = add_bedrooms_per_room
+  def fit(self,X,y=None):
+    return self
+  def transform(self,X,y=None):
+    rooms_per_household = X[:,rooms_ix] / X[:,household_ix]
+    population_per_household = X[:,population_ix] / X[:,household_ix]
+    if self.add_bedrooms_per_room:
+      bedrooms_per_room = X[:,bedrooms_ix] / X[:,rooms_ix]
+      return np.c_[X,rooms_per_household,bedrooms_per_room,population_per_household]
+    else:
+      return np.c_[X,rooms_per_household,population_per_household]
+# %%
+attr_adder = CombinedAttributesAdder(add_bedrooms_per_room=False)
+attr_adder.transform(housing.values)
+# %% [markdown]
+# We can use feature scaling to get all attributes to have the same scale.
+# %%
+housing_num = housing.drop("ocean_proximity",axis=1)
+# %%
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+# imputer: fills the na values with median of that attribute
+# adder: adds new attributes defined earlier
+# standard_scaler: transforms the values and standardizes it
+num_pipeline = Pipeline([
+  ("imputer",SimpleImputer(strategy="median")),
+  ("attributes_adder",CombinedAttributesAdder()),
+  ("standard_scaler",StandardScaler())
+])
+housing_num_tr = num_pipeline.fit_transform(housing_num)
+housing_num_tr.shape
+# %%
+from sklearn.compose import ColumnTransformer
+
+num_attributes = list(housing_num.columns)
+cat_attributes = ["ocean_proximity"]
+
+# num: apply the transformation pipeline defined in the previous cell
+# cat: apply onehotencoding to categorical attributes
+full_pipeline = ColumnTransformer([
+  ("num",num_pipeline,num_attributes),
+  ("cat",OneHotEncoder(),cat_attributes)
+])
+
+housing_prepared = full_pipeline.fit_transform(housing)
+# %%
+# attributes: 9 + 3 (adder transform) + 4 (onehotencoder) = 16
+housing_prepared.shape
 # %%
