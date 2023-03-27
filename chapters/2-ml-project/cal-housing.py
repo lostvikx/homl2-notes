@@ -264,5 +264,66 @@ housing_prepared = full_pipeline.fit_transform(housing)
 # %%
 # attributes: 9 + 3 (adder transform) + 4 (onehotencoder) = 16
 housing_prepared.shape
+# %% [markdown]
+# Now we are ready to select and train an ML model.
 # %%
-# https://github.com/ageron/handson-ml2/blob/master/02_end_to_end_machine_learning_project.ipynb
+from sklearn.linear_model import LinearRegression
+
+lin_reg = LinearRegression()
+lin_reg.fit(housing_prepared,housing_labels)  # our features and labels
+# %% [markdown]
+# Let's measure our linear regression model's RMSE on the entire training set.
+# %%
+from sklearn.metrics import mean_squared_error
+
+housing_predictions = lin_reg.predict(housing_prepared)
+lin_rmse = mean_squared_error(housing_labels,housing_predictions,squared=False)
+print(f"Price prediction error is ${round(lin_rmse,2)}")
+# %% [markdown]
+# This is an example of a model underfitting the training data. The features do not provide enough information to make good predictions, or that the model (algorithm) is not powerful enough.
+#
+# Ways to fix: select more powerful models, feed model with better features, or reduce constraints.
+#
+# Let us train a DecisionTreeRegressor: which is a more powerful model, capable of finding non-linear relationships in the data.
+# %%
+from sklearn.tree import DecisionTreeRegressor
+
+tree_reg = DecisionTreeRegressor()
+tree_reg.fit(housing_prepared,housing_labels)
+# %%
+housing_predictions = tree_reg.predict(housing_prepared)
+tree_rmse = mean_squared_error(housing_predictions,housing_labels,squared=False)
+print(f"Price prediction error is ${tree_rmse}")
+# %%
+from sklearn.model_selection import cross_val_score
+
+scores = cross_val_score(tree_reg,housing_prepared,housing_labels,scoring="neg_mean_squared_error",cv=10)
+tree_rmse_scores = np.sqrt(-scores)
+# %%
+def display_scores(scores):
+  print("RMSE:", scores)
+  print("Mean:",scores.mean())
+  print("Standard deviation:",scores.std())
+# %%
+display_scores(tree_rmse_scores)
+# %%
+scores = cross_val_score(lin_reg,housing_prepared,housing_labels,scoring="neg_mean_squared_error",cv=10)
+lin_rmse_scores = np.sqrt(-scores)
+# %%
+display_scores(lin_rmse_scores)
+# %%
+# Let us try another model
+from sklearn.ensemble import RandomForestRegressor
+
+forest_reg = RandomForestRegressor(n_estimators=100,random_state=42)
+forest_reg.fit(housing_prepared,housing_labels)
+# %%
+housing_predictions = forest_reg.predict(housing_prepared)
+forest_rmse = mean_squared_error(housing_labels,housing_predictions,squared=False)
+print(f"Price prediction error is ${forest_rmse}")
+# %%
+scores = cross_val_score(forest_reg,housing_prepared,housing_labels,scoring="neg_mean_squared_error",cv=10)
+forest_rmse_score = np.sqrt(-scores)
+# %%
+display_scores(forest_rmse_score)
+# %%
