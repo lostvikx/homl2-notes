@@ -327,3 +327,106 @@ forest_rmse_score = np.sqrt(-scores)
 # %%
 display_scores(forest_rmse_score)
 # %%
+import joblib
+
+joblib.dump(forest_reg,"model/forest_reg.pkl")
+# To load
+# joblib.load("model/forest_reg.pkl")
+# %% [markdown]
+# ## Fine-tune the model
+#
+# * Option 1: Fiddle around with hyperparameters manually.
+# * Option 2: Use GridSearchCV (CV: Cross Validation)
+# %%
+from sklearn.model_selection import GridSearchCV
+
+# 
+param_grid = [
+  {"n_estimators": [10,30,50],"max_features": [4,8,12]},
+  {"bootstrap": [False], "n_estimators": [10,20],"max_features":[4,8]}
+]
+
+forest_reg = RandomForestRegressor(random_state=42)
+
+grid_search = GridSearchCV(forest_reg,param_grid,scoring="neg_mean_squared_error",cv=5,return_train_score=True)
+
+grid_search.fit(housing_prepared,housing_labels)
+# %%
+grid_search.best_params_
+# %%
+grid_search.best_estimator_
+# %%
+cv_scores = zip(grid_search.cv_results_["params"], grid_search.cv_results_["mean_test_score"])
+for param,score in cv_scores:
+  print(param,np.sqrt(-score))
+# %%
+feature_importances = grid_search.best_estimator_.feature_importances_
+feature_importances
+# %%
+extra_attribs = ["rooms_per_hhold","pop_per_hhold","bedrooms_per_room"]
+cat_encoder = full_pipeline.named_transformers_["cat"]
+cat_one_hot_attribs = list(cat_encoder.categories_[0])
+attributes = num_attributes + extra_attribs + cat_one_hot_attribs
+attributes
+# %%
+sorted(zip(feature_importances,attributes),reverse=True)
+# %%
+final_model = grid_search.best_estimator_
+
+X_test = strat_test_set.drop("median_house_value",axis=1)
+y_test = strat_test_set["median_house_value"]
+
+X_test_prepared = full_pipeline.transform(X_test)
+# %%
+final_predictions = final_model.predict(X_test_prepared)
+final_rsme = mean_squared_error(y_test,final_predictions,squared=False)
+final_rsme
+# %%
+from scipy import stats
+
+squared_errors = (final_predictions - y_test) ** 2
+np.sqrt(stats.t.interval(0.95,len(squared_errors) - 1,loc=squared_errors.mean(),scale=stats.sem(squared_errors)))
+# %% [markdown]
+# ## Exercise Answers
+# %%
+from sklearn.svm import SVR
+
+svr = SVR(kernel="linear")
+svr.fit(housing_prepared,housing_labels)
+# %%
+housing_predictions = svr.predict(housing_prepared)
+svr_rmse = mean_squared_error(housing_labels,housing_predictions,squared=False)
+svr_rmse
+# %%
+param_grid = [
+  {"kernel":["linear","rbf"],"C":[5.0,10.0],"gamma":[0.05,0.10]}
+]
+
+svm_reg = SVR()
+grid_search = GridSearchCV(svm_reg,param_grid,cv=5,scoring="neg_mean_squared_error",return_train_score=True)
+
+grid_search.fit(housing_prepared,housing_labels)
+# %%
+from sklearn.model_selection import RandomizedSearchCV
+from scipy.stats import randint
+
+param_dist = {
+  "n_estimators": randint(low=1,high=200),
+  "max_features": randint(low=1,high=8)
+}
+
+forest_reg = RandomForestRegressor(random_state=42)
+
+rand_search = RandomizedSearchCV(estimator=forest_reg,param_distributions=param_dist,scoring="neg_mean_squared_error",cv=5,random_state=42)
+
+rand_search.fit(housing_prepared,housing_labels)
+# %%
+cv_res = zip(rand_search.cv_results_["params"],rand_search.cv_results_["mean_test_score"])
+for param,score in cv_res:
+  print(param,np.sqrt(-score))
+# %%
+rand_search.best_params_
+# %%
+def indices_of_top_k(arr,k):
+  return np.sort(np.argpartition(arr,-k)[-k:])
+# %%
