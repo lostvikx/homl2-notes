@@ -257,7 +257,7 @@ cat_attributes = ["ocean_proximity"]
 # cat: apply onehotencoding to categorical attributes
 full_pipeline = ColumnTransformer([
   ("num",num_pipeline,num_attributes),
-  ("cat",OneHotEncoder(),cat_attributes)
+  ("cat",OneHotEncoder(handle_unknown="ignore"),cat_attributes)
 ])
 
 housing_prepared = full_pipeline.fit_transform(housing)
@@ -405,7 +405,7 @@ param_grid = [
 svm_reg = SVR()
 grid_search = GridSearchCV(svm_reg,param_grid,cv=5,scoring="neg_mean_squared_error",return_train_score=True)
 
-grid_search.fit(housing_prepared,housing_labels)
+# grid_search.fit(housing_prepared,housing_labels)
 # %%
 from sklearn.model_selection import RandomizedSearchCV
 from scipy.stats import randint
@@ -430,3 +430,56 @@ rand_search.best_params_
 def indices_of_top_k(arr,k):
   return np.sort(np.argpartition(arr,-k)[-k:])
 # %%
+class TopFeatureSelector(BaseEstimator,TransformerMixin):
+  def __init__(self,feature_importances,k):
+    self.feature_importances = feature_importances
+    self.k = k
+
+  def fit(self,X,y=None):
+    self.feature_indices = indices_of_top_k(self.feature_importances,self.k)
+    return self
+
+  def transform(self,X):
+    return X[:,self.feature_indices]
+# %%
+k = 5
+top_feature_indices = indices_of_top_k(feature_importances,k)
+np.array(attributes)[top_feature_indices]
+# %%
+# Only prepare the data and select the most important features.
+preparation_and_feature_selection = Pipeline([
+  ("preparation",full_pipeline),
+  ("feature_selection",TopFeatureSelector(feature_importances,k))
+])
+# %%
+housing_prepared_with_top_features = preparation_and_feature_selection.fit_transform(housing)
+# %%
+# Checking for errors:
+housing_prepared[:3,top_feature_indices]
+# %%
+housing_prepared_with_top_features[:3]
+# %%
+full_preparation_and_prediction_pipeline = Pipeline([
+  ("preparation_and_feature_selection",preparation_and_feature_selection),
+  ("prediction",rand_search.best_estimator_)
+])
+
+full_preparation_and_prediction_pipeline.fit(housing,housing_labels)
+# %%
+some_data = housing.iloc[:5]
+some_labels = housing_labels.iloc[:5]
+
+print("Predictions:",full_preparation_and_prediction_pipeline.predict(some_data))
+print("Actual:",list(some_labels))
+# %%
+full_pipeline.named_transformers_["cat"].handle_unknown = 'ignore'
+
+param_grid = {
+  "preparation_and_feature_selection__preparation__num__imputer__strategy": ["mean"],
+  "preparation_and_feature_selection__feature_selection__k": [7,10,15]
+}
+grid_search = GridSearchCV(full_preparation_and_prediction_pipeline,param_grid,cv=5,scoring="neg_mean_squared_error",return_train_score=True)
+# %%
+grid_search.fit(housing,housing_labels)
+# %%
+grid_search.best_params_
