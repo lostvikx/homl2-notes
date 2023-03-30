@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+# %%
+sns.set_theme(context="notebook",style="darkgrid",palette="muted")
 #%%
 diamonds = pd.read_csv("data/diamonds.csv").iloc[:,1:]
 diamonds.head()
@@ -15,7 +17,7 @@ diamonds.head()
 # * depth: z / (mean(x,y)) = 2*z / (x+y) in percentage
 # * table: percentage of width on the top relative to width
 # * price: given in US Dollars
-# # * x: length in mm
+# * x: length in mm
 # * y: width in mm
 # * z: depth in mm
 # %%
@@ -48,7 +50,6 @@ def remove_outliers(data,outlier_cols,k=1.5):
     iqr = q3 - q1 # inter quartile range
     # ~ is used to inversing boolean (bitwise not)
     df = df.loc[~((df[col] < (q1 - (k * iqr))) | (df[col] > (q3 + (k * iqr))))]
-    print(df.shape)
   return df
 
 has_outliers = ["depth","x","y","z"]
@@ -59,3 +60,72 @@ from sklearn.model_selection import train_test_split
 
 train_set, test_set = train_test_split(diamonds_cleaned,test_size=0.2,random_state=42)
 # %%
+diamonds = train_set.copy()
+print(diamonds.shape)
+# %% [markdown]
+# Explore the data:
+# %%
+diamonds["cut"].value_counts().plot(kind="bar")
+plt.show()
+# %%
+corr_matrix = diamonds.corr(numeric_only=True)
+corr_matrix
+# %%
+corr_matrix["price"].sort_values(ascending=False)
+# %%
+sns.scatterplot(data=diamonds,x="price",y="carat")
+plt.show()
+# %%
+attribs = ["price","carat","x","y","z","table","depth"]
+pd.plotting.scatter_matrix(diamonds[attribs],figsize=(12,8),diagonal="hist")
+plt.show()
+# %%
+diamonds = train_set.drop("price",axis=1,inplace=False)
+diamonds_labels = train_set["price"].copy().to_numpy()
+diamonds.head()
+# %%
+diamonds_num = diamonds.loc[:,["carat","depth","table","x","y","z"]]
+diamonds_cat = diamonds.loc[:,["cut","color","clarity"]]
+# %%
+from sklearn.preprocessing import OrdinalEncoder
+
+ordinal_categories = [
+  ["Fair","Good","Very Good","Premium","Ideal"],
+  ["J","I","H","G","F","E","D"],
+  ["I1","SI2","SI1","VS2","VS1","VVS2","VVS1","IF"]
+]
+
+ordinal_encoder = OrdinalEncoder(categories=ordinal_categories)
+diamonds_cat_encoded = ordinal_encoder.fit_transform(diamonds_cat)
+diamonds_cat_encoded[:3]
+# %%
+ordinal_encoder.categories_
+# %%
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+# Add a custom pipeline here:
+num_pipeline = Pipeline([
+  ("std_scaler",StandardScaler())
+])
+# We can add a cat_pipeline later!
+num_pipeline.fit_transform(diamonds_num).shape
+# %%
+from sklearn.compose import ColumnTransformer
+
+num_attribs = list(diamonds_num.columns)
+cat_attribs = list(diamonds_cat.columns)
+
+full_pipeline = ColumnTransformer([
+  ("num",num_pipeline,num_attribs),
+  ("cat",ordinal_encoder,cat_attribs)
+])
+
+diamonds_prepared = full_pipeline.fit_transform(diamonds)
+# %%
+diamonds_prepared.shape
+# %% [markdown]
+# Now we are ready to apply ML algorithms, specifically regression models.
+#
+# Models: LinearRegression, DecisionTreeRegressor, RandomForestRegressor, SVR
+
