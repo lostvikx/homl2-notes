@@ -128,4 +128,41 @@ diamonds_prepared.shape
 # Now we are ready to apply ML algorithms, specifically regression models.
 #
 # Models: LinearRegression, DecisionTreeRegressor, RandomForestRegressor, SVR
+# %%
+from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import LinearRegression
 
+lin_reg = LinearRegression()
+lin_reg.fit(diamonds_prepared,diamonds_labels)
+# %%
+def print_rmse(model,X_train,y_train):
+  y_pred = model.predict(X_train)
+  rmse = np.sqrt(mean_squared_error(y_train,y_pred))
+  print(f"RMSE: {round(rmse,2)}")
+# %%
+print_rmse(lin_reg,diamonds_prepared,diamonds_labels)
+# %%
+from sklearn.tree import DecisionTreeRegressor
+
+tree_reg = DecisionTreeRegressor(random_state=42)
+tree_reg.fit(diamonds_prepared,diamonds_labels)
+# %%
+print_rmse(tree_reg,diamonds_prepared,diamonds_labels)
+# %%
+from sklearn.ensemble import RandomForestRegressor
+
+forest_reg = RandomForestRegressor(random_state=42)
+forest_reg.fit(diamonds_prepared,diamonds_labels)
+# %%
+print_rmse(forest_reg,diamonds_prepared,diamonds_labels)
+# %%
+from sklearn.svm import SVR
+
+svr_reg = SVR()
+svr_reg.fit(diamonds_prepared,diamonds_labels)
+# %%
+print_rmse(svr_reg,diamonds_prepared,diamonds_labels)
+# %% [markdown]
+# So far we have only seen how well does our models bias, linear regression shows a high bias, while the decision tree regressor shows a low bias indicating a high possibility of overfitting the training data.
+#
+# Now let us do a cross validation to get an idea of overfitting and see how good are models are the generalize to new data.
