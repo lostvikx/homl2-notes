@@ -9,7 +9,7 @@ sns.set_theme(context="notebook",style="darkgrid",palette="muted")
 diamonds = pd.read_csv("data/diamonds.csv").iloc[:,1:]
 diamonds.head()
 # %% [markdown]
-# ## Understanding the features given:
+# # Understanding the features given:
 # * carat: weight of the diamond
 # * cut: (Fair, Good, Very Good, Premium, Ideal) ordinal
 # * color: J (worst) to D (best) ordinal
@@ -63,7 +63,7 @@ train_set, test_set = train_test_split(diamonds_cleaned,test_size=0.2,random_sta
 diamonds = train_set.copy()
 print(diamonds.shape)
 # %% [markdown]
-# Explore the data:
+# # Explore the data
 # %%
 diamonds["cut"].value_counts().plot(kind="bar")
 plt.show()
@@ -125,6 +125,8 @@ diamonds_prepared = full_pipeline.fit_transform(diamonds)
 # %%
 diamonds_prepared.shape
 # %% [markdown]
+# # Ready to apply ML models
+#
 # Now we are ready to apply ML algorithms, specifically regression models.
 #
 # Models: LinearRegression, DecisionTreeRegressor, RandomForestRegressor, SVR
@@ -163,6 +165,119 @@ svr_reg.fit(diamonds_prepared,diamonds_labels)
 # %%
 print_rmse(svr_reg,diamonds_prepared,diamonds_labels)
 # %% [markdown]
+# # Cross Validation
+#
 # So far we have only seen how well does our models bias, linear regression shows a high bias, while the decision tree regressor shows a low bias indicating a high possibility of overfitting the training data.
 #
 # Now let us do a cross validation to get an idea of overfitting and see how good are models are the generalize to new data.
+# %%
+from sklearn.model_selection import GridSearchCV
+
+# Can be a list of dictionaries.
+param_grid = {
+  "n_estimators": [100,150,200], 
+  "max_features": [2,4,6,8]
+}
+
+forest_reg = RandomForestRegressor(random_state=42)
+grid_search = GridSearchCV(forest_reg,param_grid,scoring="neg_mean_squared_error",return_train_score=True,cv=5)
+grid_search.fit(diamonds_prepared,diamonds_labels)
+# %%
+forest_best_estimator = grid_search.best_estimator_
+forest_best_estimator
+# %%
+forest_best_params = grid_search.best_params_
+# %%
+def print_cv_scores(grid_search):
+  cv_scores = zip(grid_search.cv_results_["params"], grid_search.cv_results_["mean_train_score"])
+  for param, score in cv_scores:
+    print(param, np.sqrt(-score))
+# %%
+print_cv_scores(grid_search)
+# %%
+# Only in Ensemble Learning Methods
+feature_importances = forest_best_estimator.feature_importances_
+feature_importances
+# %%
+# Function to print the feature importances:
+attributes = num_attribs + cat_attribs
+sorted(zip(feature_importances,attributes),reverse=True)
+# %%
+param_grid = {
+  "kernel": ["linear","poly"], 
+  "gamma": ["auto"]
+}
+
+svr = SVR()
+grid_search = GridSearchCV(svr,param_grid,scoring="neg_mean_squared_error",return_train_score=True,cv=5)
+grid_search.fit(diamonds_prepared,diamonds_labels)
+# %%
+svr_best_estimator = grid_search.best_estimator_
+svr_best_estimator
+# %%
+svr_best_params = grid_search.best_params_
+# %%
+print_cv_scores(grid_search)
+# %%
+def indices_of_top_k(features,k):
+  return np.sort(np.argpartition(features,-k)[-k:])
+
+from sklearn.base import BaseEstimator,TransformerMixin
+
+class TopFeatureSelector(BaseEstimator,TransformerMixin):
+  def __init__(self,feature_importances,k):
+    self.feature_importances = feature_importances
+    self.k = k
+  def fit(self,X,y=None):
+    self.top_feature_indices = indices_of_top_k(self.feature_importances,self.k)
+    return self
+  def transform(self,X):
+    return X[:,self.top_feature_indices]
+# %%
+k = 3
+top_features = indices_of_top_k(feature_importances,k)
+np.array(attributes)[top_features]
+# %%
+preparation_and_top_features = Pipeline([
+  ("preparation",full_pipeline),
+  ("feature_selection",TopFeatureSelector(feature_importances,k))
+])
+diamonds_prepared_with_top_features = preparation_and_top_features.fit_transform(diamonds)
+# %%
+diamonds_prepared_with_top_features[:2]
+# %%
+diamonds_prepared[:2,top_features]
+# %%
+X_test = test_set.drop("price",axis=1)
+y_test = test_set["price"]
+# %%
+X_test_prepared = full_pipeline.transform(X_test)
+# %%
+forest_pred = forest_best_estimator.predict(X_test_prepared)
+forest_mse = mean_squared_error(y_test,forest_pred)
+np.sqrt(forest_mse)
+# %%
+svr_pred = svr_best_estimator.predict(X_test_prepared)
+svr_mse = mean_squared_error(y_test,svr_pred)
+np.sqrt(svr_mse)
+# %% [markdown]
+# Complete Pipeline (Not Tested)
+# %%
+forest_reg = RandomForestRegressor()
+
+forest_pipeline = Pipeline([
+  ("preparation", preparation_and_top_features),
+  ("prediction",forest_reg)
+])
+
+param_grid = {
+  "preparation__feature_selection__k": [2,4,6,8],
+  "prediction__n_estimators": [100,150,200],
+  "prediction__max_features": [2,4,6,8]
+}
+
+grid_search = GridSearchCV(forest_pipeline,param_grid,scoring="neg_mean_squared_error",return_train_score=True,cv=5)
+# %%
+grid_search.fit(diamonds,diamonds_labels)
+# %%
+grid_search.best_params_
