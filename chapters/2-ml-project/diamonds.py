@@ -263,7 +263,7 @@ np.sqrt(svr_mse)
 # %% [markdown]
 # Complete Pipeline (Not Tested)
 # %%
-forest_reg = RandomForestRegressor()
+forest_reg = RandomForestRegressor(random_state=42)
 
 forest_pipeline = Pipeline([
   ("preparation", preparation_and_top_features),
@@ -281,3 +281,19 @@ grid_search = GridSearchCV(forest_pipeline,param_grid,scoring="neg_mean_squared_
 grid_search.fit(diamonds,diamonds_labels)
 # %%
 grid_search.best_params_
+# %%
+final_model = grid_search.best_estimator_
+# %% [markdown]
+# 95% confidence interval for the test RMSE:
+# %%
+final_pred = final_model.predict(X_test)
+final_mse = mean_squared_error(y_test,final_pred)
+np.sqrt(final_mse)
+# %%
+from scipy import stats
+confidence = 0.95
+squared_errors = (final_pred - y_test) ** 2
+final_rmse = np.sqrt(stats.t.interval(confidence,len(squared_errors)-1,loc=final_mse,scale=stats.sem(squared_errors)))
+list(final_rmse)
+# %% [markdown]
+# https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.PolynomialFeatures.html
