@@ -5,8 +5,13 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 # %%
 sns.set_theme(context="notebook",style="darkgrid",palette="muted")
-#%%
-diamonds = pd.read_csv("data/diamonds.csv").iloc[:,1:]
+# %%
+kaggle_path = "../input/diamonds/diamonds.csv"
+try:
+  diamonds = pd.read_csv("data/diamonds.csv").iloc[:,1:]
+except:
+  print("Kaggle Notebook")
+  diamonds = pd.read_csv(kaggle_path).iloc[:,1:]
 diamonds.head()
 # %% [markdown]
 # # Understanding the features given:
@@ -68,7 +73,10 @@ print(diamonds.shape)
 diamonds["cut"].value_counts().plot(kind="bar")
 plt.show()
 # %%
-corr_matrix = diamonds.corr(numeric_only=True)
+try:
+  corr_matrix = diamonds.corr(numeric_only=True)
+except:
+  corr_matrix = diamonds.corr()
 corr_matrix
 # %%
 corr_matrix["price"].sort_values(ascending=False)
