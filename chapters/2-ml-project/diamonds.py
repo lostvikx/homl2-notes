@@ -14,7 +14,7 @@ except:
   diamonds = pd.read_csv(kaggle_path).iloc[:,1:]
 diamonds.head()
 # %% [markdown]
-# # Understanding the features given:
+# # Understanding the features:
 # * carat: weight of the diamond
 # * cut: (Fair, Good, Very Good, Premium, Ideal) ordinal
 # * color: J (worst) to D (best) ordinal
@@ -25,6 +25,8 @@ diamonds.head()
 # * x: length in mm
 # * y: width in mm
 # * z: depth in mm
+# %% [markdown]
+# ![Diamond Diagram](https://lh6.googleusercontent.com/SOSfDhRFlincUXUkLr_EbLxkRELE105iYQZlggeeRWCBuk15wJXkHxcNwiWpQaL3vwUCwSqrKmgSwSEWS3Gn9KpAFrgaFJ6G1hby8VJ2bb2xrdDSBkSi2tgYQZMQ5IKgeHFVGBUE)
 # %%
 diamonds.info()
 # %%
@@ -43,9 +45,7 @@ diamonds = diamonds.dropna(axis=0)
 sns.scatterplot(data=diamonds,x="x",y="y")
 plt.show()
 # %% [markdown]
-# We can clearly see a few outliers in our dataset.
-#
-# We are going to use Tukey's method to get rid of outliers in our data.
+# We can clearly see a few outliers in our dataset. We are going to use Tukey's method to get rid of outliers in our data.
 # %%
 def remove_outliers(data,outlier_cols,k=1.5):
   df = data.copy()
@@ -134,9 +134,7 @@ diamonds_prepared = full_pipeline.fit_transform(diamonds)
 diamonds_prepared.shape
 # %% [markdown]
 # # Ready to apply ML models
-#
 # Now we are ready to apply ML algorithms, specifically regression models.
-#
 # Models: LinearRegression, DecisionTreeRegressor, RandomForestRegressor, SVR
 # %%
 from sklearn.metrics import mean_squared_error
@@ -174,9 +172,7 @@ svr_reg.fit(diamonds_prepared,diamonds_labels)
 print_rmse(svr_reg,diamonds_prepared,diamonds_labels)
 # %% [markdown]
 # # Cross Validation
-#
 # So far we have only seen how well does our models bias, linear regression shows a high bias, while the decision tree regressor shows a low bias indicating a high possibility of overfitting the training data.
-#
 # Now let us do a cross validation to get an idea of overfitting and see how good are models are the generalize to new data.
 # %%
 from sklearn.model_selection import GridSearchCV
@@ -269,7 +265,7 @@ svr_pred = svr_best_estimator.predict(X_test_prepared)
 svr_mse = mean_squared_error(y_test,svr_pred)
 np.sqrt(svr_mse)
 # %% [markdown]
-# Complete Pipeline (Not Tested)
+# # Complete Pipeline
 # %%
 forest_reg = RandomForestRegressor(random_state=42)
 
@@ -278,10 +274,13 @@ forest_pipeline = Pipeline([
   ("prediction",forest_reg)
 ])
 
+# Regression problem: max_features: n_features/3
+# n_features = 9, max_features = 3 (ISLR)
+
 param_grid = {
-  "preparation__feature_selection__k": [2,4,6,8],
-  "prediction__n_estimators": [100,150,200],
-  "prediction__max_features": [2,4,6,8]
+  "preparation__feature_selection__k": [4,6,8],
+  "prediction__n_estimators": [200,300],
+  "prediction__max_features": ["sqrt","log2",1,2,3,4]
 }
 
 grid_search = GridSearchCV(forest_pipeline,param_grid,scoring="neg_mean_squared_error",return_train_score=True,cv=5)
