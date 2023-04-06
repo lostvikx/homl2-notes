@@ -148,11 +148,11 @@ plt.show()
 # %%
 
 # %%
-def plot_precision_vs_recall(precisions,recalls):
-  plt.plot(recalls,precisions)
+def plot_precision_vs_recall(precisions,recalls,label=None):
+  plt.plot(recalls,precisions,label=label)
   plt.xlabel("Recall")
   plt.ylabel("Precision")
-  plt.axis([0,1,0,1])
+  # plt.axis([0,1,0,1])
 
 # plt.figure(figsize=(8,6))
 plot_precision_vs_recall(precisions,recalls)
@@ -171,4 +171,63 @@ precision_score(y_train_5,y_train_pred_90)
 recall_score(y_train_5,y_train_pred_90)
 # %% [markdown]
 # We get a classifier that has 90% precision, but with a recall of about 48%.
+# %% [markdown]
+# ## ROC Curve
+# * Plots Recall vs (1 - Specificity)
+# * Recall: True positive rate
+# * Specificity: True negative rate
+# %%
+from sklearn.metrics import roc_curve
+
+fpr, tpr, thresholds = roc_curve(y_train_5,y_scores)
+# %%
+def plot_roc_curve(fpr,tpr,label=None):
+  plt.plot(fpr,tpr,label=label)
+  plt.plot([0,1],[0,1], "--")
+  plt.xlabel("False Positive Rate (Fall-Out)")
+  plt.ylabel("True Positive Rate (Recall)")
+  # plt.axis([0,1,0,1])
+
+plot_roc_curve(fpr,tpr)
+plt.show()
+# %%
+from sklearn.metrics import roc_auc_score
+
+roc_auc_score(y_train_5,y_scores)
+# %%
+from sklearn.ensemble import RandomForestClassifier
+
+forest_clf = RandomForestClassifier(n_estimators=100,random_state=42)
+y_probas_forest = cross_val_predict(forest_clf,X_train,y_train_5,cv=3,method="predict_proba")
+# %%
+y_probas_forest[0]
+# %%
+y_scores_forest = y_probas_forest[:,1]
+fpr_forest,tpr_forest,thresholds_forest = roc_curve(y_train_5,y_scores_forest)
+# %%
+plt.plot(fpr,tpr,label="SGD")
+plot_roc_curve(fpr_forest,tpr_forest,"RandomForest")
+plt.legend()
+plt.show()
+# %%
+roc_auc_score(y_train_5,y_scores_forest)
+# %% [markdown]
+# Trying to measure the precision and recall using RandomForest.
+# %%
+y_pred_forest = cross_val_predict(forest_clf,X_train,y_train_5,cv=3)
+# %%
+confusion_matrix(y_train_5,y_pred_forest)
+# %%
+precision_score(y_train_5,y_pred_forest)
+# %%
+recall_score(y_train_5,y_pred_forest)
+# %%
+f1_score(y_train_5,y_pred_forest)
+# %%
+precisions_forest, recalls_forest, thresholds_forest = precision_recall_curve(y_train_5,y_scores_forest)
+# %%
+plt.plot(recalls,precisions,label="SGD")
+plot_precision_vs_recall(precisions_forest,recalls_forest,label="RandomForest")
+plt.legend()
+plt.show()
 # %%
