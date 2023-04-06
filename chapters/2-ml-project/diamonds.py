@@ -303,4 +303,4 @@ squared_errors = (final_pred - y_test) ** 2
 final_rmse = np.sqrt(stats.t.interval(confidence,len(squared_errors)-1,loc=final_mse,scale=stats.sem(squared_errors)))
 list(final_rmse)
 # %% [markdown]
-# https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.PolynomialFeatures.html
+# [Polynomial Features](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.PolynomialFeatures.html)
