@@ -88,3 +88,87 @@ for train_idx, test_idx in skfolds.split(X_train,y_train_5):
 from sklearn.model_selection import cross_val_score
 
 cross_val_score(sgd_clf,X_train,y_train,cv=3,scoring="accuracy")
+# %%
+from sklearn.model_selection import cross_val_predict
+
+y_train_pred = cross_val_predict(sgd_clf,X_train,y_train_5,cv=3)
+# %%
+from sklearn.metrics import confusion_matrix
+
+confusion_matrix(y_train_5,y_train_pred)
+# %% [markdown]
+# * Row: actual class (neg,pos)
+# * Column: predicted class (neg,pos)
+# * [[TN, FP], [FN, TP]]
+# %%
+confusion_matrix(y_train_5,y_train_5) # pretend perfection
+# %% [markdown]
+# ## Important Metrics 
+# * Precision: accuracy of positive decisions.
+# * Recall: sensitivity or true positive rate.
+# %%
+from sklearn.metrics import precision_score, recall_score
+
+precision_score(y_train_5,y_train_pred)
+# %%
+recall_score(y_train_5,y_train_pred)
+# %% [markdown]
+# Use f1_score (the harmonic mean of precision_score and recall_score) is used to compare different models (ML algorithms).
+# %%
+from sklearn.metrics import f1_score
+
+f1_score(y_train_5,y_train_pred)
+# %% [markdown]
+# Note: Increasing precision reduces recall, this is called the precision/recall trade-off.
+# %%
+# Specific to our estimator: SGDClassifier
+y_scores = cross_val_predict(sgd_clf,X_train,y_train_5,cv=3,method="decision_function")
+y_scores
+# %%
+from sklearn.metrics import precision_recall_curve
+
+precisions, recalls, thresholds = precision_recall_curve(y_train_5,y_scores)
+# %%
+def plot_precision_recall_vs_threshold(precisions,recalls,thresholds):
+  plt.plot(thresholds,precisions[:-1],label="Precision")
+  plt.plot(thresholds,recalls[:-1],label="Recall")
+  plt.legend()
+  plt.axis([-40000,40000,0,1])
+  plt.title("Precision/Recall Trade-off")
+  plt.xlabel("Threshold")
+
+plt.figure(figsize=(8,4))
+plot_precision_recall_vs_threshold(precisions,recalls,thresholds)
+plt.show()
+# %% [markdown]
+# Sometimes increasing the threshold (moving it to the right) may result in the decrease in precision (mostly increases). While recall can only decrease as threshold is increased.
+# %%
+# Threshold is 0
+(y_train_pred == (y_scores > 0)).all()
+# %%
+
+# %%
+def plot_precision_vs_recall(precisions,recalls):
+  plt.plot(recalls,precisions)
+  plt.xlabel("Recall")
+  plt.ylabel("Precision")
+  plt.axis([0,1,0,1])
+
+# plt.figure(figsize=(8,6))
+plot_precision_vs_recall(precisions,recalls)
+plt.show()
+# %%
+# Suppose we want a 90% precision.
+# np.argmax: returns first index of max value (True value)
+threshold_90_precision = thresholds[np.argmax(precisions >= 0.90)]
+threshold_90_precision
+# %%
+# Prediction: All y_scores >= threshold_90_precision should be True.
+y_train_pred_90 = (y_scores >= threshold_90_precision)
+# %%
+precision_score(y_train_5,y_train_pred_90)
+# %%
+recall_score(y_train_5,y_train_pred_90)
+# %% [markdown]
+# We get a classifier that has 90% precision, but with a recall of about 48%.
+# %%
