@@ -230,4 +230,49 @@ plt.plot(recalls,precisions,label="SGD")
 plot_precision_vs_recall(precisions_forest,recalls_forest,label="RandomForest")
 plt.legend()
 plt.show()
+# %% [markdown]
+# # Multiclass Classification
+# They can distinguish between more than two classes. Not all classification predictive models support multi-class classification.
+# * Binary Classifiers: Logistic Regression, Perceptron, and SVM.
+# * OvR (One vs Rest): It involves splitting the multi-class dataset into multiple binary classification problems. A possible downside of this approach is that it requires one model to be created for each class. (Example: 0-detector, 1-detector, ...)
+# * OvO (One vs One): Unlike one-vs-rest that splits it into one binary dataset for each class, the one-vs-one approach splits the dataset into one dataset for each class versus every other class. (Example: 0s vs 1s, 0s, vs 2s, ...) Note: n_estimators = (n_classes * (n_classes – 1)) / 2
+# %%
+from sklearn.svm import SVC
+
+svm_clf = SVC()  # Uses OvO by default (One vs One strategy)
+svm_clf.fit(X_train,y_train)
+svm_clf.predict([some_digit])
+# %%
+some_digit_score = svm_clf.decision_function([some_digit])
+some_digit_score
+# %%
+svm_clf.classes_[np.argmax(some_digit_score)]
+# %%
+from sklearn.multiclass import OneVsRestClassifier
+
+ovr_clf = OneVsRestClassifier(SVC())
+ovr_clf.fit(X_train,y_train)
+# %%
+ovr_clf.predict([some_digit])
+# %%
+len(ovr_clf.estimators_)
+# %%
+sgd_clf = SGDClassifier(random_state=42)
+sgd_clf.fit(X_train,y_train)
+sgd_clf.predict([some_digit])
+# %%
+sgd_clf.decision_function([some_digit])
+# %% [markdown]
+# Unfortunately, we get the wrong result here.
+# %%
+cross_val_score(sgd_clf,X_train,y_train,cv=3,scoring="accuracy")
+# %%
+# Try to improve the accuracy of the model
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train.astype(np.float64))
+# %%
+cross_val_score(sgd_clf,X_train_scaled,y_train,cv=3,scoring="accuracy")
+
 # %%
