@@ -338,4 +338,26 @@ plt.subplot(224).set_title("Correctly Predicted as 8")
 plot_digits(X_88[rand_sample_indices(X_88)])
 
 plt.show()
+# %% [markdown]
+# # Multilabel Classification
+# In some cases we may want our classifier to output multiple classes for each instance. A classification system that outputs multiple binary tags is called a multilabel classification system.
+# %%
+from sklearn.neighbors import KNeighborsClassifier
+
+y_train_big = (y_train >= 7)  # Identified class is greater than or equal to 7.
+y_train_odd = (y_train % 2 == 1)  # Identified class is an odd number.
+y_train_multilabel = np.c_[y_train_big,y_train_odd]
+
+knn_clf = KNeighborsClassifier()
+knn_clf.fit(X_train,y_train_multilabel)
+# %%
+knn_clf.predict([some_digit])
+# %% [markdown]
+# The above output suggest that the output is less than 7 and is an odd number.
+# %%
+y_train_pred_knn = cross_val_predict(knn_clf,X_train,y_train_multilabel,cv=3)
+# %%
+f1_score(y_train_multilabel,y_train_pred_knn,average="macro")
+# %% [markdown]
+# # Multioutput Classification
 # %%
