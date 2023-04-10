@@ -43,7 +43,7 @@ import random
 f, ax = plt.subplots(nrows=10,ncols=10)
 
 def fetch_random_image(X):
-  rand_index = random.randint(0,10000)
+  rand_index = random.randint(0,len(X)-1)
   some_img = X[rand_index]
   return some_img.reshape((28,28))
 
@@ -274,5 +274,68 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train.astype(np.float64))
 # %%
 cross_val_score(sgd_clf,X_train_scaled,y_train,cv=3,scoring="accuracy")
+# %% [markdown]
+# ## Error Analysis
+# %%
+y_train_pred = cross_val_predict(sgd_clf,X_train_scaled,y_train,cv=3)
+# %%
+conf_mx = confusion_matrix(y_train,y_train_pred)
+conf_mx
+# %%
+plt.figure(figsize=(8,6))
+sns.heatmap(conf_mx)
+plt.show()
+# %%
+# Sum of actual classes
+# row_sums will be used to calculate percent of correctly classified.
+row_sums = conf_mx.sum(axis=1,keepdims=True)
+row_sums
+# %%
+norm_conf_mx = conf_mx / row_sums
+np.fill_diagonal(norm_conf_mx,0)
+sns.heatmap(norm_conf_mx)
+plt.show()
+# %% [markdown]
+# * Columns: Prediction, Rows: Actual
+# * We can clearly see that column 8 is bright, meaning that some numbers are misclassified as 8. 3s and 5s often get misclassified as 8s.
+# %%
+cl_5,cl_8 = 5,8
+X_55 = X_train[(y_train == cl_5) & (y_train_pred == cl_5)]
+X_58 = X_train[(y_train == cl_5) & (y_train_pred == cl_8)]
+X_85 = X_train[(y_train == cl_8) & (y_train_pred == cl_5)]
+X_88 = X_train[(y_train == cl_8) & (y_train_pred == cl_8)]
+# %%
+# f,ax = plt.subplots(nrows=2,ncols=2)
 
+# sub.imshow(fetch_random_image(X_55),cmap="binary")
+# sub.axis("off")
+# %%
+import math
+
+def plot_digits(instances,images_per_row=5):
+  size = 28
+  n_rows = math.ceil(len(instances) / images_per_row)
+  image_grid = instances.reshape((n_rows, images_per_row, size, size))
+  big_image = image_grid.transpose(0, 2, 1, 3).reshape(n_rows * size,images_per_row*size)
+  plt.imshow(big_image,cmap="binary")
+  plt.axis("off")
+
+def rand_sample_indices(X,n=25):
+  return np.random.randint(0,len(X)-1,n)
+
+plt.figure(figsize=(10,10))
+
+plt.subplot(221).set_title("Correctly Predicted as 5")
+plot_digits(X_55[rand_sample_indices(X_55)])
+
+plt.subplot(222).set_title("Wrongly Predicted as 8")
+plot_digits(X_58[rand_sample_indices(X_58)])
+
+plt.subplot(223).set_title("Wrongly Predicted as 5")
+plot_digits(X_85[rand_sample_indices(X_85)])
+
+plt.subplot(224).set_title("Correctly Predicted as 8")
+plot_digits(X_88[rand_sample_indices(X_88)])
+
+plt.show()
 # %%
