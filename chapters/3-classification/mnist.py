@@ -6,17 +6,23 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import seaborn as sns
+import joblib
 # %%
 sns.set_theme(context="notebook",style="darkgrid",palette="muted")
 # %%
 from sklearn.datasets import fetch_openml
-mnist = fetch_openml("mnist_784",version=1,parser="auto")
+try:
+  mnist = fetch_openml("mnist_784",version=1,parser="auto")
+except:
+  mnist = fetch_openml("mnist_784",version=1)
 mnist.keys()
 # %% [markdown]
 # Datasets loaded by sklearn are like pandas, with keys such as DESCR: description of the dataset, data: 2D array, and target: array with labels.
 # %%
 X,y = mnist["data"],mnist["target"]
 print(X.shape,y.shape)
+# %%
+del mnist
 # %% [markdown]
 # Note: 70000 images with 784 features: 28x28 pixels image.
 # %%
@@ -37,6 +43,7 @@ y = y.to_numpy()
 # Split the data into train and test set!
 X_train,X_test = X[:60000],X[60000:]
 y_train,y_test = y[:60000],y[60000:]
+del X,y
 # %%
 import random
 
@@ -49,7 +56,7 @@ def fetch_random_image(X):
 
 for row in ax:
   for sub in row:
-    sub.imshow(fetch_random_image(X),cmap="binary")
+    sub.imshow(fetch_random_image(X_train),cmap="binary")
     sub.axis("off")
 
 plt.show()
@@ -123,7 +130,7 @@ f1_score(y_train_5,y_train_pred)
 # %%
 # Specific to our estimator: SGDClassifier
 y_scores = cross_val_predict(sgd_clf,X_train,y_train_5,cv=3,method="decision_function")
-y_scores
+y_scores[:3]
 # %%
 from sklearn.metrics import precision_recall_curve
 
@@ -146,8 +153,6 @@ plt.show()
 # Threshold is 0
 (y_train_pred == (y_scores > 0)).all()
 # %%
-
-# %%
 def plot_precision_vs_recall(precisions,recalls,label=None):
   plt.plot(recalls,precisions,label=label)
   plt.xlabel("Recall")
@@ -169,6 +174,8 @@ y_train_pred_90 = (y_scores >= threshold_90_precision)
 precision_score(y_train_5,y_train_pred_90)
 # %%
 recall_score(y_train_5,y_train_pred_90)
+# %%
+del threshold_90_precision,y_train_pred_90
 # %% [markdown]
 # We get a classifier that has 90% precision, but with a recall of about 48%.
 # %% [markdown]
@@ -248,6 +255,9 @@ some_digit_score
 # %%
 svm_clf.classes_[np.argmax(some_digit_score)]
 # %%
+joblib.dump(svm_clf,"model/svm_clf.pkl")
+del svm_clf
+# %%
 from sklearn.multiclass import OneVsRestClassifier
 
 ovr_clf = OneVsRestClassifier(SVC())
@@ -256,6 +266,9 @@ ovr_clf.fit(X_train,y_train)
 ovr_clf.predict([some_digit])
 # %%
 len(ovr_clf.estimators_)
+# %%
+joblib.dump(ovr_clf,"model/ovr_clf.pkl")
+del ovr_clf
 # %%
 sgd_clf = SGDClassifier(random_state=42)
 sgd_clf.fit(X_train,y_train)
@@ -274,6 +287,8 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train.astype(np.float64))
 # %%
 cross_val_score(sgd_clf,X_train_scaled,y_train,cv=3,scoring="accuracy")
+# %%
+cross_val_score(forest_clf,X_train_scaled,y_train,cv=3,scoring="accuracy")
 # %% [markdown]
 # ## Error Analysis
 # %%
@@ -281,6 +296,8 @@ y_train_pred = cross_val_predict(sgd_clf,X_train_scaled,y_train,cv=3)
 # %%
 conf_mx = confusion_matrix(y_train,y_train_pred)
 conf_mx
+# %%
+del sgd_clf
 # %%
 plt.figure(figsize=(8,6))
 sns.heatmap(conf_mx)
@@ -295,6 +312,8 @@ norm_conf_mx = conf_mx / row_sums
 np.fill_diagonal(norm_conf_mx,0)
 sns.heatmap(norm_conf_mx)
 plt.show()
+# %%
+del conf_mx,row_sums,norm_conf_mx
 # %% [markdown]
 # * Columns: Prediction, Rows: Actual
 # * We can clearly see that column 8 is bright, meaning that some numbers are misclassified as 8. 3s and 5s often get misclassified as 8s.
@@ -338,6 +357,8 @@ plt.subplot(224).set_title("Correctly Predicted as 8")
 plot_digits(X_88[rand_sample_indices(X_88)])
 
 plt.show()
+# %%
+del plot_digits
 # %% [markdown]
 # # Multilabel Classification
 # In some cases we may want our classifier to output multiple classes for each instance. A classification system that outputs multiple binary tags is called a multilabel classification system.
@@ -396,3 +417,111 @@ plt.figure(figsize=(5,5))
 plot_digit(clean_digit)
 plt.title("Actual Output")
 plt.show()
+# %%
+joblib.dump(knn_clf,"model/knn_clf.pkl")
+del knn_clf
+# %% [markdown]
+# # Exercise Answers
+# ## GridSearchCV
+# %%
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV
+
+pipeline =  Pipeline([
+  ("scaler", StandardScaler()),
+  ("knn", KNeighborsClassifier())
+])
+
+param_grid = {
+  "knn__n_neighbors": [3,4,5],
+  "knn__weights": ["distance","uniform"]
+}
+
+grid_search = GridSearchCV(pipeline,param_grid,cv=5,verbose=3,scoring="accuracy")
+# %%
+grid_search.fit(X_train,y_train)
+# %%
+knn_best_estimator = grid_search.best_estimator_
+knn_best_estimator
+# %%
+grid_search.best_score_
+# %%
+y_pred = knn_best_estimator.predict(X_test)
+# %%
+from sklearn.metrics import accuracy_score,precision_score,recall_score,f1_score
+
+accuracy = accuracy_score(y_test,y_pred)
+precision = precision_score(y_test,y_pred, average="weighted")
+recall = recall_score(y_test,y_pred, average="weighted")
+f1 = f1_score(y_test,y_pred,average="weighted")
+
+print("Accuracy:",accuracy)
+print("Precision:",precision)
+print("Recall:",recall)
+print("F1 score:",f1)
+# %% [markdown]
+# ## Data Augmentation
+# %%
+from scipy.ndimage import shift
+
+def shift_image(image, dx, dy):
+  img = image.reshape((28,28))
+  shifted_img = shift(img,[dy,dx])
+  return shifted_img.reshape([-1])
+# %%
+img = X_train[420]
+shift_right = shift_image(img,5,0)
+shift_up_left = shift_image(img,-5,-5)
+
+f, (ax1,ax2,ax3) = plt.subplots(nrows=1,ncols=3,figsize=(10,5))
+
+ax1.imshow(img.reshape((28,28)),cmap="binary")
+ax1.axis("off")
+ax1.set_title("Original")
+
+ax2.imshow(shift_right.reshape((28,28)),cmap="binary")
+ax2.axis("off")
+ax2.set_title("Shifted Right")
+
+ax3.imshow(shift_up_left.reshape((28,28)),cmap="binary")
+ax3.axis("off")
+ax3.set_title("Shifted Left & Up")
+
+plt.show()
+# %%
+X_train_augmented = [img for img in X_train]
+y_train_augmented = [label for label in y_train]
+
+# Shift by 1 in every direction.
+shifts = [(0,1),(1,0),(0,-1),(-1,0)]
+
+for (dx,dy) in shifts:
+  for (img,label) in zip(X_train,y_train):
+    shifted = shift_image(img,dx,dy)
+    X_train_augmented.append(shifted)
+    y_train_augmented.append(label)
+
+X_train_augmented = np.array(X_train_augmented)
+y_train_augmented = np.array(y_train_augmented)
+
+print(X_train_augmented.shape,y_train_augmented.shape)
+# %%
+del X_train,y_train
+# %%
+shuffled_idx = np.random.permutation(len(X_train_augmented))
+X_train_augmented = X_train_augmented[shuffled_idx]
+y_train_augmneted = y_train_augmented[shuffled_idx]
+# %%
+knn_best_params = {key.replace("knn__",""):val for (key,val) in grid_search.best_params_.items()}
+print(knn_best_params)
+# %%
+final_pipeline = Pipeline([
+  ("scaler",StandardScaler()),
+  ("knn",KNeighborsClassifier(**knn_best_params))
+])
+
+# fit method will transform the data first
+final_pipeline.fit(X_train_augmented,y_train_augmented)
+# %%
+# predict method will transform the data first
+final_pipeline.score(X_test,y_test)
