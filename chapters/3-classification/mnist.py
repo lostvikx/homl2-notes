@@ -510,7 +510,7 @@ del X_train,y_train
 # %%
 shuffled_idx = np.random.permutation(len(X_train_augmented))
 X_train_augmented = X_train_augmented[shuffled_idx]
-y_train_augmneted = y_train_augmented[shuffled_idx]
+y_train_augmented = y_train_augmented[shuffled_idx]
 # %%
 knn_best_params = {key.replace("knn__",""):val for (key,val) in grid_search.best_params_.items()}
 print(knn_best_params)
