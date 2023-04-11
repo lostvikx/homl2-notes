@@ -360,4 +360,39 @@ y_train_pred_knn = cross_val_predict(knn_clf,X_train,y_train_multilabel,cv=3)
 f1_score(y_train_multilabel,y_train_pred_knn,average="macro")
 # %% [markdown]
 # # Multioutput Classification
+# Each label can be multiclass. We can build a system to remove random noise from an image and hopefully output a clean digit. Output is going to be a 28x28 size array, therefore a multilayer output (one label per pixel). And each label can have multiple outputs (pixel intensity: 0 to 255).
 # %%
+# Only adding pixel intensity ranging from [0,100)
+noise = np.random.randint(0,100,size=(len(X_train),28*28))
+X_train_mod = X_train + noise
+# %%
+noise = np.random.randint(0,100,size=(len(X_test),28*28))
+X_test_mod = X_test + noise
+# %%
+y_train_mod = X_train
+y_test_mod = X_test
+# %%
+some_index = random.randint(0,len(X_test_mod)-1)
+def plot_digit(instance):
+  img = instance.reshape((28,28))
+  plt.imshow(img,cmap="binary")
+  plt.axis("off")
+
+plt.figure(figsize=(10,10))
+
+plt.subplot(121).set_title("Input")
+plot_digit(X_test_mod[some_index])
+
+plt.subplot(122).set_title("Expected Output")
+plot_digit(y_test_mod[some_index])
+
+print(f"Number: {y_test[some_index]}")
+# %%
+knn_clf.fit(X_train_mod,y_train_mod)
+# %%
+clean_digit = knn_clf.predict([X_test_mod[some_index]])
+# %%
+plt.figure(figsize=(5,5))
+plot_digit(clean_digit)
+plt.title("Actual Output")
+plt.show()
