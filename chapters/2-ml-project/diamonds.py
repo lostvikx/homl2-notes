@@ -192,6 +192,7 @@ forest_best_estimator
 # %%
 forest_best_params = grid_search.best_params_
 # %%
+# TODO: Add a way to sort for minimum rmse score.
 def print_cv_scores(grid_search):
   cv_scores = zip(grid_search.cv_results_["params"], grid_search.cv_results_["mean_train_score"])
   for param, score in cv_scores:
@@ -280,7 +281,7 @@ forest_pipeline = Pipeline([
 param_grid = {
   "preparation__feature_selection__k": [4,6,8],
   "prediction__n_estimators": [200,300],
-  "prediction__max_features": ["sqrt","log2",1,2,3,4]
+  "prediction__max_features": [2,4,6,8]
 }
 
 grid_search = GridSearchCV(forest_pipeline,param_grid,scoring="neg_mean_squared_error",return_train_score=True,cv=5)
