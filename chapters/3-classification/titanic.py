@@ -23,6 +23,7 @@ sns.set_theme(context="notebook",style="darkgrid",palette="muted")
 # %%
 try:
   path = "data/titanic"
+  in_kaggle = False
   train_set = pd.read_csv(f"{path}/train.csv")
   test_set = pd.read_csv(f"{path}/test.csv")
 except:
@@ -134,7 +135,7 @@ def alone_feature(dataset, keep_details=False):
   if keep_details:
     return dataset
   else:
-    return dataset.drop(["SibSp","Parch","FamilyMem"],axis=1)
+    return dataset.drop(["FamilyMem"],axis=1)
 # %%
 titanic["FamilyMem"] = titanic["SibSp"] + titanic["Parch"]
 titanic.head()
@@ -217,7 +218,7 @@ titanic.info()
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 
-titanic_num = titanic[["Age","Fare"]]
+titanic_num = titanic[["Age","Fare","SibSp","Parch"]]
 
 num_pipeline = Pipeline([
   ("imputer", SimpleImputer(strategy="mean")),
@@ -551,11 +552,47 @@ final_pred = pd.DataFrame({
 })
 final_pred.head()
 # %%
-if in_kaggle:
-  final_pred.to_csv(f"submission.csv",index=False)
-else:
-  final_pred.to_csv(f"{path}/submission.csv",index=False)
+def save_preds(predictions,name="submission"):
+  if in_kaggle:
+    predictions.to_csv(f"{name}.csv",index=False)
+  else:
+    predictions.to_csv(f"{path}/{name}.csv",index=False)
 # %%
-# TODO: KNeighborClassifier
+save_preds(final_pred,"svc_preds")
+# %%
 # TODO: Do something with Cabin feature
 # TODO: Impute Age based on the other columns like Pclass
+# %% [markdown]
+# # Ensemble Learning
+# %%
+def get_best_params(grid_search):
+  return {key.replace("classifier__",""): val for key,val in grid_search.best_params_.items() if key.startswith("classifier__")}
+# %%
+from sklearn.ensemble import VotingClassifier
+
+lr_clf = LogisticRegression(**get_best_params(log_grid_search))
+svc_clf = SVC(**get_best_params(svc_grid_search))
+
+models = [
+  ("lr",lr_clf),
+  ("svc",svc_clf)
+]
+
+voting_clf = VotingClassifier(estimators=models, voting="hard")
+# %%
+voting_clf.fit(X_train,y_train)
+# %%
+y_pred = voting_clf.predict(X_train)
+accuracy_score(y_train,y_pred)
+# %%
+y_pred = voting_clf.predict(X_test)
+y_pred.shape
+# %%
+final_pred = pd.DataFrame({
+  "PassengerId": test_ids,
+  "Survived": y_pred
+})
+final_pred.head()
+# %%
+save_preds(final_pred,"voting_preds")
+# %%
