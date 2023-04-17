@@ -256,3 +256,188 @@ def prepare_data(dataset):
 # %%
 X_train = prepare_data(train_set)
 X_train.shape
+# %% [markdown]
+# # Predictions using ML: Classification
+# * SGDClassifier
+# * LogisticRegression
+# * RandomForestClassifier
+# * KNeighborsClassifier
+# %%
+from sklearn.linear_model import SGDClassifier
+
+sgd_clf = SGDClassifier(random_state=42)
+sgd_clf.fit(X_train,y_train)
+# %%
+sgd_clf.predict(X_train[:3])
+# %%
+y_train[:3]
+# %%
+from sklearn.model_selection import cross_val_score
+
+cross_val_score(sgd_clf,X_train,y_train,cv=5,scoring="accuracy")
+# %%
+from sklearn.model_selection import cross_val_predict
+
+y_pred_sgd = cross_val_predict(sgd_clf,X_train,y_train,cv=5)
+# %%
+from sklearn.metrics import confusion_matrix
+
+confusion_matrix(y_train,y_pred_sgd)
+# %%
+from sklearn.metrics import precision_score,recall_score
+
+print("Precision:",precision_score(y_train,y_pred_sgd))
+print("Recall:",recall_score(y_train,y_pred_sgd))
+# %%
+from sklearn.metrics import precision_score, recall_score, f1_score
+
+def model_scores(model,X_train,y_true,cv=5):
+  y_pred = cross_val_predict(model,X_train,y_true,cv=cv)
+  print(confusion_matrix(y_true,y_pred))
+  print("Precision:",precision_score(y_true,y_pred))
+  print("Recall:",recall_score(y_true,y_pred))
+  print("F1:",f1_score(y_true,y_pred))
+# %%
+model_scores(sgd_clf,X_train,y_train)
+# %%
+from sklearn.metrics import precision_recall_curve
+
+y_scores_sgd = cross_val_predict(sgd_clf,X_train,y_train,cv=5,method="decision_function")
+
+prec_sgd, recall_sgd, thres_sgd = precision_recall_curve(y_train,y_scores_sgd)
+
+def plot_precision_recall_threshold(precisions,recalls,thresholds):
+  plt.plot(thresholds,precisions[:-1],label="Precision")
+  plt.plot(thresholds,recalls[:-1],label="Recall")
+  plt.title("Precision/Recall Trade-off")
+  plt.legend()
+
+plot_precision_recall_threshold(prec_sgd,recall_sgd,thres_sgd)
+plt.show()
+# %%
+def plot_precision_recall(precisions,recalls,label=None):
+  plt.plot(recalls,precisions,label=label)
+  plt.xlabel("Recall")
+  plt.ylabel("Precision")
+
+plot_precision_recall(prec_sgd,recall_sgd)
+plt.show()
+# %%
+from sklearn.metrics import roc_curve, roc_auc_score
+
+fpr_sgd,tpr_sgd,thres_sgd = roc_curve(y_train,y_scores_sgd)
+
+def plot_roc_curve(fpr,tpr,label=None):
+  plt.plot(fpr,tpr,label=label)
+  plt.plot([0,1],[0,1], "--")
+  plt.xlabel("False Positive Rate (Fall-Out)")
+  plt.ylabel("True Positive Rate (Recall)")
+
+plot_roc_curve(fpr_sgd,tpr_sgd)
+plt.show()
+# %%
+roc_auc_score(y_train,y_scores_sgd)
+# %%
+from sklearn.linear_model import LogisticRegression
+
+log_clf = LogisticRegression(random_state=42)
+log_clf.fit(X_train,y_train)
+# %%
+log_clf.predict(X_train[:3])
+# %%
+cross_val_score(log_clf,X_train,y_train,cv=5,scoring="accuracy")
+# %%
+y_scores_log = cross_val_predict(log_clf,X_train,y_train,cv=5,method="decision_function")
+
+prec_log, recall_log, thres_log = precision_recall_curve(y_train,y_scores_log)
+
+plot_precision_recall(prec_sgd,recall_sgd,label="SGD")
+plt.plot(recall_log,prec_log,label="Logistic")
+plt.legend()
+plt.show()
+# %%
+fpr_log,tpr_log,thres_log = roc_curve(y_train,y_scores_log)
+
+plot_roc_curve(fpr_log,tpr_log,label="Logistic")
+plt.plot(fpr_sgd,tpr_sgd,label="SGD")
+plt.legend()
+plt.show()
+# %%
+from sklearn.ensemble import RandomForestClassifier
+
+forest_clf = RandomForestClassifier(random_state=42)
+forest_clf.fit(X_train,y_train)
+# %%
+forest_clf.predict(X_train[:3])
+# %%
+cross_val_score(forest_clf,X_train,y_train,cv=5,scoring="accuracy")
+# %%
+y_scores_forest = cross_val_predict(forest_clf,X_train,y_train,cv=5,method="predict_proba")[:,1]
+
+prec_for,recall_for,thres_for = precision_recall_curve(y_train,y_scores_forest)
+
+plot_precision_recall(prec_for,recall_for,label="RandomForest")
+plt.plot(recall_sgd,prec_sgd,label="SGD")
+plt.plot(recall_log,prec_log,label="Logistic")
+plt.legend()
+plt.show()
+# %%
+fpr_for,tpr_for,thres_for = roc_curve(y_train,y_scores_forest)
+
+plot_roc_curve(fpr_for,tpr_for,label="RandomForest")
+plt.plot(fpr_sgd,tpr_sgd,label="SGD")
+plt.plot(fpr_log,tpr_log,label="Logistic")
+plt.legend()
+plt.show()
+# %%
+from sklearn.neighbors import KNeighborsClassifier
+
+knn_clf = KNeighborsClassifier()
+knn_clf.fit(X_train,y_train)
+# %%
+knn_clf.predict(X_train[:3])
+# %%
+cross_val_score(knn_clf,X_train,y_train,cv=5,scoring="accuracy")
+# %%
+y_scores_knn = cross_val_predict(knn_clf,X_train,y_train,cv=5,method="predict_proba")[:,1]
+
+prec_knn,recall_knn,thres_knn = precision_recall_curve(y_train,y_scores_knn)
+
+plot_precision_recall(prec_knn,recall_knn,label="KNN")
+plt.plot(recall_sgd,prec_sgd,label="SGD")
+plt.plot(recall_log,prec_log,label="Logistic")
+plt.plot(recall_for,prec_for,label="RandomForest")
+plt.legend()
+plt.show()
+# %%
+fpr_knn,tpr_knn,thres_knn = roc_curve(y_train,y_scores_knn)
+
+plot_roc_curve(fpr_knn,tpr_knn,label="KNN")
+plt.plot(fpr_sgd,tpr_sgd,label="SGD")
+plt.plot(fpr_log,tpr_log,label="Logistic")
+plt.plot(fpr_for,tpr_for,label="RandomForest")
+plt.legend()
+plt.show()
+# %%
+print("---ROC AUC Score---")
+print("SGD:",roc_auc_score(y_train,y_scores_sgd))
+print("Logistic:",roc_auc_score(y_train,y_scores_log))
+print("RandomForest:",roc_auc_score(y_train,y_scores_forest))
+print("KNN:",roc_auc_score(y_train,y_scores_knn))
+# %%
+print("SGD Scores")
+model_scores(sgd_clf,X_train,y_train)
+# %%
+print("Logistic Scores")
+model_scores(log_clf,X_train,y_train)
+# %%
+print("RandomForest Scores")
+model_scores(forest_clf,X_train,y_train)
+# %%
+print("KNN Scores")
+model_scores(knn_clf,X_train,y_train)
+# %% [markdown]
+# # Tuning Hyperparameters
+
+# We can see that `LogisticRegression` and `RandomForestClassifier` perform well on our dataset. Hence, we will try to tune their hyperparameters to find an optimal model that generalizes well on the test set.
+# %%
