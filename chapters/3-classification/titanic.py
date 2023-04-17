@@ -475,3 +475,87 @@ model_scores(knn_clf,X_train,y_train)
 # %%
 print("SVC Scores")
 model_scores(svc_clf,X_train,y_train)
+# %% [markdown]
+# # Tuning Hyperparameters
+
+# We saw that `LogisticRegression`, `RandomForestClassifier`, and `SVC` perform well on our dataset. Hence, we will try to tune their hyperparameters to find an optimal model that generalizes well on the test set.
+# %%
+from sklearn.model_selection import GridSearchCV
+
+log_pipe = Pipeline([
+  ("preprocessor",preprocessor),
+  ("classifier",LogisticRegression(random_state=42,max_iter=200))
+])
+
+param_grid = {
+  "preprocessor__relevant_features__keep_details": [False,True],
+  "preprocessor__prepare__num__imputer__strategy": ["mean","median"],
+  "classifier__solver": ["liblinear","lbfgs"],
+  "classifier__penalty": ["l2"],
+  "classifier__C": [100, 10, 1.0, 0.1, 0.01]
+}
+
+log_grid_search = GridSearchCV(log_pipe,param_grid,scoring="accuracy",cv=5,verbose=3)
+# %%
+log_grid_search.fit(train_set,y_train)
+# %%
+print("Params:",log_grid_search.best_params_)
+print("Score:",log_grid_search.best_score_)
+# %%
+forest_pipe = Pipeline([
+  ("preprocessor", preprocessor),
+  ("classifier",RandomForestClassifier(random_state=42))
+])
+
+param_grid = {
+  "preprocessor__relevant_features__keep_details": [False,True],
+  "preprocessor__prepare__num__imputer__strategy": ["mean","median"],
+  "classifier__n_estimators": [10,100,200,1000],
+  "classifier__max_features": ["sqrt","log2"],
+}
+
+forest_grid_search = GridSearchCV(forest_pipe,param_grid,scoring="accuracy",cv=5,verbose=3)
+# %%
+forest_grid_search.fit(train_set,y_train)
+# %%
+print("Params:",forest_grid_search.best_params_)
+print("Score:",forest_grid_search.best_score_)
+# %%
+svc_pipe = Pipeline([
+  ("preprocessor", preprocessor),
+  ("classifier",SVC(random_state=42))
+])
+
+param_grid = {
+  "preprocessor__relevant_features__keep_details": [False,True],
+  "preprocessor__prepare__num__imputer__strategy": ["mean","median"],
+  "classifier__kernel": ["linear","poly","rbf"],
+  "classifier__C": [100, 10, 1.0, 0.1, 0.001],
+}
+
+svc_grid_search = GridSearchCV(svc_pipe,param_grid,scoring="accuracy",cv=5,verbose=3)
+# %%
+svc_grid_search.fit(train_set,y_train)
+# %%
+print("Params:",svc_grid_search.best_params_)
+print("Score:",svc_grid_search.best_score_)
+# %% [markdown]
+# Wow! SVC came out on top with the best accuracy score.
+# %%
+y_pred = svc_grid_search.predict(test_set)
+y_pred.shape
+# %%
+final_pred = pd.DataFrame({
+  "PassengerId": test_ids,
+  "Survived": y_pred
+})
+final_pred.head()
+# %%
+if in_kaggle:
+  final_pred.to_csv(f"submission.csv",index=False)
+else:
+  final_pred.to_csv(f"{path}/submission.csv",index=False)
+# %%
+# TODO: KNeighborClassifier
+# TODO: Do something with Cabin feature
+# TODO: Impute Age based on the other columns like Pclass
