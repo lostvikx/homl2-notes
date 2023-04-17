@@ -21,10 +21,15 @@ sns.set_theme(context="notebook",style="darkgrid",palette="muted")
 # * Cabin: cabin number
 # * Embarked: port of embarkation (C = Cherbourg, Q = Queenstown, S = Southampton) (Categorical)
 # %%
-path = "data/titanic"
-
-train_set = pd.read_csv(f"{path}/train.csv")
-test_set = pd.read_csv(f"{path}/test.csv")
+try:
+  path = "data/titanic"
+  train_set = pd.read_csv(f"{path}/train.csv")
+  test_set = pd.read_csv(f"{path}/test.csv")
+except:
+  path = "../input/titanic"
+  in_kaggle = True
+  train_set = pd.read_csv(f"{path}/train.csv")
+  test_set = pd.read_csv(f"{path}/test.csv")
 
 train_ids = train_set["PassengerId"]
 test_ids = test_set["PassengerId"]
@@ -180,7 +185,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 class DataTransformation(BaseEstimator, TransformerMixin):
   def __init__(self,create_title=True,keep_details=False):
     self.create_title = create_title
-    self.keep_family_details = keep_details
+    self.keep_details = keep_details
 
   def fit(self,X,y=None):
     return self
@@ -191,7 +196,7 @@ class DataTransformation(BaseEstimator, TransformerMixin):
     if self.create_title:
       X = title_feature(X)
     X = X.drop(["Ticket","Cabin"],axis=1)
-    X = alone_feature(X,keep_details=self.keep_family_details)
+    X = alone_feature(X,keep_details=self.keep_details)
 
     fill_val = X[X["Pclass"] == 1]["Embarked"].value_counts().index[0]
     X = X.fillna({"Embarked": fill_val})
@@ -240,22 +245,20 @@ cat_attribs = list(titanic_cat.columns)
 
 col_trans = ColumnTransformer([
   ("num",num_pipeline,num_attribs),
-  ("cat",cat_pipeline,cat_attribs)
+  ("cat",cat_pipeline,cat_attribs),
+  ("ord","passthrough",["Pclass"])
 ])
 
-titanic_prepared = np.c_[titanic["Pclass"].to_numpy(),col_trans.fit_transform(titanic)]
-titanic_prepared.shape
+col_trans.fit_transform(titanic).shape
 # %%
-full_pipeline = Pipeline([
-  ("relevant_features", trans_pipeline),
+preprocessor = Pipeline([
+  ("relevant_features", DataTransformation()),
   ("prepare", col_trans)
 ])
 # %%
-def prepare_data(dataset):
-  return np.c_[dataset["Pclass"].to_numpy(),full_pipeline.fit_transform(dataset)]
-# %%
-X_train = prepare_data(train_set)
-X_train.shape
+X_train = preprocessor.fit_transform(train_set)
+X_test = preprocessor.fit_transform(test_set)
+print(X_train.shape,X_test.shape)
 # %% [markdown]
 # # Predictions using ML: Classification
 # * SGDClassifier
@@ -274,7 +277,7 @@ y_train[:3]
 # %%
 from sklearn.model_selection import cross_val_score
 
-cross_val_score(sgd_clf,X_train,y_train,cv=5,scoring="accuracy")
+cross_val_score(sgd_clf,X_train,y_train,cv=5,scoring="accuracy").mean()
 # %%
 from sklearn.model_selection import cross_val_predict
 
@@ -289,11 +292,12 @@ from sklearn.metrics import precision_score,recall_score
 print("Precision:",precision_score(y_train,y_pred_sgd))
 print("Recall:",recall_score(y_train,y_pred_sgd))
 # %%
-from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
 def model_scores(model,X_train,y_true,cv=5):
   y_pred = cross_val_predict(model,X_train,y_true,cv=cv)
   print(confusion_matrix(y_true,y_pred))
+  print("Accuracy:",accuracy_score(y_true,y_pred))
   print("Precision:",precision_score(y_true,y_pred))
   print("Recall:",recall_score(y_true,y_pred))
   print("F1:",f1_score(y_true,y_pred))
@@ -345,7 +349,7 @@ log_clf.fit(X_train,y_train)
 # %%
 log_clf.predict(X_train[:3])
 # %%
-cross_val_score(log_clf,X_train,y_train,cv=5,scoring="accuracy")
+cross_val_score(log_clf,X_train,y_train,cv=5,scoring="accuracy").mean()
 # %%
 y_scores_log = cross_val_predict(log_clf,X_train,y_train,cv=5,method="decision_function")
 
@@ -370,7 +374,7 @@ forest_clf.fit(X_train,y_train)
 # %%
 forest_clf.predict(X_train[:3])
 # %%
-cross_val_score(forest_clf,X_train,y_train,cv=5,scoring="accuracy")
+cross_val_score(forest_clf,X_train,y_train,cv=5,scoring="accuracy").mean()
 # %%
 y_scores_forest = cross_val_predict(forest_clf,X_train,y_train,cv=5,method="predict_proba")[:,1]
 
@@ -397,7 +401,7 @@ knn_clf.fit(X_train,y_train)
 # %%
 knn_clf.predict(X_train[:3])
 # %%
-cross_val_score(knn_clf,X_train,y_train,cv=5,scoring="accuracy")
+cross_val_score(knn_clf,X_train,y_train,cv=5,scoring="accuracy").mean()
 # %%
 y_scores_knn = cross_val_predict(knn_clf,X_train,y_train,cv=5,method="predict_proba")[:,1]
 
@@ -419,11 +423,43 @@ plt.plot(fpr_for,tpr_for,label="RandomForest")
 plt.legend()
 plt.show()
 # %%
+from sklearn.svm import SVC
+
+svc_clf = SVC(random_state=42)
+svc_clf.fit(X_train,y_train)
+# %%
+svc_clf.predict(X_train[:3])
+# %%
+cross_val_score(svc_clf,X_train,y_train,cv=5,scoring="accuracy").mean()
+# %%
+y_scores_svc = cross_val_predict(svc_clf,X_train,y_train,cv=5,method="decision_function")
+
+prec_svc,recall_svc,thres_svc = precision_recall_curve(y_train,y_scores_svc)
+
+plot_precision_recall(prec_svc,recall_svc,label="SVC")
+plt.plot(recall_knn,prec_knn,label="KNN")
+plt.plot(recall_sgd,prec_sgd,label="SGD")
+plt.plot(recall_log,prec_log,label="Logistic")
+plt.plot(recall_for,prec_for,label="RandomForest")
+plt.legend()
+plt.show()
+# %%
+fpr_svc,tpr_svc,thres_svc = roc_curve(y_train,y_scores_svc)
+
+plot_roc_curve(fpr_svc,tpr_svc,label="SVC")
+plt.plot(fpr_knn,tpr_knn,label="KNN")
+plt.plot(fpr_sgd,tpr_sgd,label="SGD")
+plt.plot(fpr_log,tpr_log,label="Logistic")
+plt.plot(fpr_for,tpr_for,label="RandomForest")
+plt.legend()
+plt.show()
+# %%
 print("---ROC AUC Score---")
 print("SGD:",roc_auc_score(y_train,y_scores_sgd))
 print("Logistic:",roc_auc_score(y_train,y_scores_log))
 print("RandomForest:",roc_auc_score(y_train,y_scores_forest))
 print("KNN:",roc_auc_score(y_train,y_scores_knn))
+print("SVC:",roc_auc_score(y_train,y_scores_svc))
 # %%
 print("SGD Scores")
 model_scores(sgd_clf,X_train,y_train)
@@ -436,8 +472,6 @@ model_scores(forest_clf,X_train,y_train)
 # %%
 print("KNN Scores")
 model_scores(knn_clf,X_train,y_train)
-# %% [markdown]
-# # Tuning Hyperparameters
-
-# We can see that `LogisticRegression` and `RandomForestClassifier` perform well on our dataset. Hence, we will try to tune their hyperparameters to find an optimal model that generalizes well on the test set.
 # %%
+print("SVC Scores")
+model_scores(svc_clf,X_train,y_train)
