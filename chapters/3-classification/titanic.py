@@ -56,24 +56,25 @@ print("3rd class cabins:",show_cabin_floor(3))
 # %%
 train_set["Name"].str.extract("(\w+)\.").value_counts()
 # %%
-def add_title(dataset):
+def title_feature(dataset):
   dataset = dataset.copy()
   dataset["Title"] = dataset["Name"].str.extract("(\w+)\.")
 
   common_titles = ["Mr","Mrs","Miss","Master"]
-
   dataset["Title"] = dataset["Title"].apply(lambda title: title if title in common_titles else "Rare")
 
-  return dataset
+  return dataset.drop("Name",axis=1)
 # %%
-train_set = add_title(train_set)
-test_set = add_title(test_set)
-train_set["Title"].value_counts()
+train_set_tr = title_feature(train_set)
+test_set_tr = title_feature(test_set)
+train_set_tr["Title"].value_counts()
 # %%
 # ["Survived","Pclass","Sex","Age","SibSp","Parch","Fare","Embarked","Title"]
 # %%
-titanic = train_set.drop(["Name","Ticket","Cabin"],axis=1)
-X_test = test_set.drop(["Name","Ticket","Cabin"],axis=1)
+def drop_useless_features(dataset):
+  return dataset.drop(["Ticket","Cabin"],axis=1)
+# %%
+titanic = train_set_tr.drop(["Ticket","Cabin"],axis=1)
 titanic.head()
 # %% [markdown]
 # # Explore the data
@@ -121,11 +122,11 @@ plt.show()
 sns.countplot(data=titanic,x="SibSp",hue="Survived")
 plt.show()
 # %%
-def add_family_members(dataset,keep_all=False):
+def alone_feature(dataset, keep_details=False):
   dataset = dataset.copy()
   dataset["FamilyMem"] = dataset["SibSp"] + dataset["Parch"]
-  dataset["Alone"] = np.where(dataset["FamilyMem"] > 0, 0, 1)
-  if keep_all:
+  dataset["Alone"] = np.where(dataset["FamilyMem"] > 0, "No", "Yes")
+  if keep_details:
     return dataset
   else:
     return dataset.drop(["SibSp","Parch","FamilyMem"],axis=1)
@@ -157,3 +158,101 @@ titanic.head()
 sns.scatterplot(data=titanic,x="Age",y="Fare",hue="Survived")
 plt.show()
 # %%
+# Just found this out!
+titanic[titanic["Embarked"].isna()]
+# Both are of Pclass 1
+# %%
+sns.countplot(data=titanic,x="Pclass",hue="Embarked")
+plt.show()
+# %%
+sns.countplot(data=titanic[titanic["Pclass"] == 1],x="Embarked")
+plt.show()
+# %%
+fill_val = titanic[titanic["Pclass"] == 1]["Embarked"].value_counts().index[0]
+titanic = titanic.fillna({"Embarked": fill_val})
+titanic["Embarked"].value_counts()
+# %% [markdown]
+# # Prepare the data
+# %%
+from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator, TransformerMixin
+
+class DataTransformation(BaseEstimator, TransformerMixin):
+  def __init__(self,create_title=True,keep_details=False):
+    self.create_title = create_title
+    self.keep_family_details = keep_details
+
+  def fit(self,X,y=None):
+    return self
+
+  def transform(self,X):
+    X = X.copy()
+    
+    if self.create_title:
+      X = title_feature(X)
+    X = X.drop(["Ticket","Cabin"],axis=1)
+    X = alone_feature(X,keep_details=self.keep_family_details)
+
+    fill_val = X[X["Pclass"] == 1]["Embarked"].value_counts().index[0]
+    X = X.fillna({"Embarked": fill_val})
+
+    return X
+
+trans_pipeline = Pipeline([
+  ("trans", DataTransformation())
+])
+
+titanic = trans_pipeline.fit_transform(train_set)
+titanic.head()
+# %%
+y_train = titanic["Survived"].to_numpy()
+titanic = titanic.drop("Survived",axis=1)
+titanic.info()
+# %%
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+
+titanic_num = titanic[["Age","Fare"]]
+
+num_pipeline = Pipeline([
+  ("imputer", SimpleImputer(strategy="mean")),
+  ("std_scaler", StandardScaler())
+])
+
+num_pipeline.fit_transform(titanic_num).shape
+# %%
+from sklearn.preprocessing import OneHotEncoder
+
+titanic_cat = titanic[["Sex","Embarked","Title","Alone"]]
+
+cat_pipeline = Pipeline([
+  ("ohe", OneHotEncoder())
+])
+
+cat_pipeline.fit_transform(titanic_cat).shape
+# %%
+pd.get_dummies(titanic_cat).head()
+# %%
+from sklearn.compose import ColumnTransformer
+
+num_attribs = list(titanic_num.columns)
+cat_attribs = list(titanic_cat.columns)
+
+col_trans = ColumnTransformer([
+  ("num",num_pipeline,num_attribs),
+  ("cat",cat_pipeline,cat_attribs)
+])
+
+titanic_prepared = np.c_[titanic["Pclass"].to_numpy(),col_trans.fit_transform(titanic)]
+titanic_prepared.shape
+# %%
+full_pipeline = Pipeline([
+  ("relevant_features", trans_pipeline),
+  ("prepare", col_trans)
+])
+# %%
+def prepare_data(dataset):
+  return np.c_[dataset["Pclass"].to_numpy(),full_pipeline.fit_transform(dataset)]
+# %%
+X_train = prepare_data(train_set)
+X_train.shape
