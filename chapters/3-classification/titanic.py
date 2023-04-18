@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
-import joblib
 # %%
 sns.set_theme(context="notebook",style="darkgrid",palette="muted")
 # %% [markdown]
@@ -41,9 +40,17 @@ test_set = test_set.drop("PassengerId",axis=1)
 train_set.head()
 # %%
 train_set.info()
+# %%
+test_set.info()
 # %% [markdown]
+# ## Train Set
 # * Cabin feature only has 204 out of the total 891 instances, hence we drop it.
 # * Age feature has a few missing values, we will fill with mean or median.
+# * Embarked: missing 2 instances
+# ## Test Set
+# * Cabin: only 91 of 418, we may drop it.
+# * Age: 332 of 418, will fill.
+# * Fare: 1 instance is missing.
 # %%
 train_set.describe()
 # %%
@@ -63,6 +70,9 @@ print("3rd class cabins:",show_cabin_floor(3))
 train_set["Name"].str.extract("(\w+)\.").value_counts()
 # %%
 def title_feature(dataset):
+  """
+  Adds Title feature and removes Name feature.
+  """
   dataset = dataset.copy()
   dataset["Title"] = dataset["Name"].str.extract("(\w+)\.")
 
@@ -74,11 +84,6 @@ def title_feature(dataset):
 train_set_tr = title_feature(train_set)
 test_set_tr = title_feature(test_set)
 train_set_tr["Title"].value_counts()
-# %%
-# ["Survived","Pclass","Sex","Age","SibSp","Parch","Fare","Embarked","Title"]
-# %%
-def drop_useless_features(dataset):
-  return dataset.drop(["Ticket","Cabin"],axis=1)
 # %%
 titanic = train_set_tr.drop(["Ticket","Cabin"],axis=1)
 titanic.head()
@@ -128,14 +133,14 @@ plt.show()
 sns.countplot(data=titanic,x="SibSp",hue="Survived")
 plt.show()
 # %%
-def alone_feature(dataset, keep_details=False):
+def alone_feature(dataset):
+  """
+  Adds FamilyMem & Alone feature.
+  """
   dataset = dataset.copy()
   dataset["FamilyMem"] = dataset["SibSp"] + dataset["Parch"]
   dataset["Alone"] = np.where(dataset["FamilyMem"] > 0, "No", "Yes")
-  if keep_details:
-    return dataset
-  else:
-    return dataset.drop(["FamilyMem"],axis=1)
+  return dataset
 # %%
 titanic["FamilyMem"] = titanic["SibSp"] + titanic["Parch"]
 titanic.head()
@@ -144,7 +149,7 @@ sns.countplot(data=titanic,x="FamilyMem",hue="Survived")
 plt.show()
 # %%
 # Check if passenger is alone!
-titanic["Alone"] = np.where(titanic["FamilyMem"] > 0, 0, 1)
+titanic["Alone"] = np.where(titanic["FamilyMem"] > 0, "No", "Yes")
 titanic.head()
 # %%
 sns.countplot(data=titanic,x="Alone",hue="Survived")
@@ -158,8 +163,12 @@ corr_mx
 # %%
 corr_mx["Survived"].sort_values(ascending=False)
 # %%
-titanic = titanic.drop(["SibSp","Parch","FamilyMem"],axis=1)
-titanic.head()
+# titanic = titanic.drop(["SibSp","Parch","FamilyMem"],axis=1)
+# titanic.head()
+# %%
+titanic["FamilyMem"].value_counts()
+# %%
+titanic.describe()
 # %%
 sns.scatterplot(data=titanic,x="Age",y="Fare",hue="Survived")
 plt.show()
@@ -183,29 +192,21 @@ titanic["Embarked"].value_counts()
 from sklearn.pipeline import Pipeline
 from sklearn.base import BaseEstimator, TransformerMixin
 
-class DataTransformation(BaseEstimator, TransformerMixin):
-  def __init__(self,create_title=True,keep_details=False):
-    self.create_title = create_title
-    self.keep_details = keep_details
+class AdditionalFeatures(BaseEstimator, TransformerMixin):
+  def __init__(self):
+    return None
 
   def fit(self,X,y=None):
     return self
 
   def transform(self,X):
-    X = X.copy()
-    
-    if self.create_title:
-      X = title_feature(X)
-    X = X.drop(["Ticket","Cabin"],axis=1)
-    X = alone_feature(X,keep_details=self.keep_details)
+    X_tr = title_feature(X)
+    X_tr = alone_feature(X_tr)
+    return X_tr
 
-    fill_val = X[X["Pclass"] == 1]["Embarked"].value_counts().index[0]
-    X = X.fillna({"Embarked": fill_val})
-
-    return X
-
+# Testing
 trans_pipeline = Pipeline([
-  ("trans", DataTransformation())
+  ("trans", AdditionalFeatures())
 ])
 
 titanic = trans_pipeline.fit_transform(train_set)
@@ -234,7 +235,7 @@ titanic_cat = titanic[["Sex","Embarked","Title","Alone"]]
 cat_pipeline = Pipeline([
   ("ohe", OneHotEncoder())
 ])
-
+# Don't worry, we get an extra, because we didn't fillna.
 cat_pipeline.fit_transform(titanic_cat).shape
 # %%
 pd.get_dummies(titanic_cat).head()
@@ -252,8 +253,52 @@ col_trans = ColumnTransformer([
 
 col_trans.fit_transform(titanic).shape
 # %%
+def fill_values(df, col_name):
+  """
+  Fills the missing values in Embarked, Age, and Fare (test_set) features.
+  """
+  df = df.copy()
+  if col_name == "Embarked":
+    # Both missing instances belong to Pclass == 1
+    val = df[df["Pclass"] == 1]["Embarked"].value_counts().index[0]
+    df = df.fillna({"Embarked": val})
+  elif col_name == "Age":
+    for n in range(1,4):
+      mean_age = df[df["Pclass"] == n]["Age"].mean()
+      df.loc[df["Pclass"] == n, "Age"] = df.loc[df["Pclass"] == n, "Age"].fillna(mean_age)
+  elif col_name == "Fare":
+    # Only 1 missing instance of Pclass == 3
+    mean_fare = df[df["Pclass"] == 3]["Fare"].mean()
+    df = df.fillna({"Fare": mean_fare})
+  return df
+
+class FillMissingFeatures(BaseEstimator, TransformerMixin):
+  def __init__(self, fill_missing_by_pclass=True):
+    self.fill_missing_by_pclass = fill_missing_by_pclass
+
+  def fit(self,X,y=None):
+    return self
+
+  def transform(self,X):
+    if self.fill_missing_by_pclass:
+      X_tr = fill_values(X, "Embarked")
+      X_tr = fill_values(X_tr, "Age")
+      X_tr = fill_values(X_tr, "Fare")
+    else:
+      X_tr = X.copy()
+    return X_tr
+# %%
+test_pipe = Pipeline([
+  ("trans", FillMissingFeatures())
+])
+
+test_pipe.fit_transform(train_set).info()
+# %%
+test_pipe.fit_transform(test_set).info()
+# %%
 preprocessor = Pipeline([
-  ("relevant_features", DataTransformation()),
+  ("additional_features", AdditionalFeatures()),
+  ("fill_missing", FillMissingFeatures()),
   ("prepare", col_trans)
 ])
 # %%
@@ -481,26 +526,38 @@ model_scores(svc_clf,X_train,y_train)
 
 # We saw that `LogisticRegression`, `RandomForestClassifier`, and `SVC` perform well on our dataset. Hence, we will try to tune their hyperparameters to find an optimal model that generalizes well on the test set.
 # %%
+y_train = train_set["Survived"].to_numpy()
+train_set = train_set.drop("Survived",axis=1)
+train_set.head()
+# %%
+preprocessor_params = {
+  "preprocessor__fill_missing__fill_missing_by_pclass": [True,False],
+  "preprocessor__prepare__num__imputer__strategy": ["mean","median"]
+}
+# %%
+def get_best_params(grid_search):
+  return {key.replace("classifier__", ""): val for (key, val) in grid_search.best_params_.items() if key.startswith("classifier__")}
+# %%
 from sklearn.model_selection import GridSearchCV
 
 log_pipe = Pipeline([
   ("preprocessor",preprocessor),
-  ("classifier",LogisticRegression(random_state=42,max_iter=200))
+  ("classifier",LogisticRegression(random_state=42))
 ])
 
 param_grid = {
-  "preprocessor__relevant_features__keep_details": [False,True],
-  "preprocessor__prepare__num__imputer__strategy": ["mean","median"],
+  **preprocessor_params,
   "classifier__solver": ["liblinear","lbfgs"],
+  "classifier__max_iter": [100,200,300],
   "classifier__penalty": ["l2"],
-  "classifier__C": [100, 10, 1.0, 0.1, 0.01]
+  "classifier__C": [0.6, 0.8, 1.0, 1.2, 1.4]
 }
 
-log_grid_search = GridSearchCV(log_pipe,param_grid,scoring="accuracy",cv=5,verbose=3)
+log_grid_search = GridSearchCV(log_pipe,param_grid,scoring="accuracy",cv=5,verbose=1)
 # %%
 log_grid_search.fit(train_set,y_train)
 # %%
-print("Params:",log_grid_search.best_params_)
+print("Params:",get_best_params(log_grid_search))
 print("Score:",log_grid_search.best_score_)
 # %%
 forest_pipe = Pipeline([
@@ -509,17 +566,16 @@ forest_pipe = Pipeline([
 ])
 
 param_grid = {
-  "preprocessor__relevant_features__keep_details": [False,True],
-  "preprocessor__prepare__num__imputer__strategy": ["mean","median"],
-  "classifier__n_estimators": [10,100,200,1000],
+  **preprocessor_params,
+  "classifier__n_estimators": [100,200,250,300],
   "classifier__max_features": ["sqrt","log2"],
 }
 
-forest_grid_search = GridSearchCV(forest_pipe,param_grid,scoring="accuracy",cv=5,verbose=3)
+forest_grid_search = GridSearchCV(forest_pipe,param_grid,scoring="accuracy",cv=5,verbose=1)
 # %%
 forest_grid_search.fit(train_set,y_train)
 # %%
-print("Params:",forest_grid_search.best_params_)
+print("Params:",get_best_params(forest_grid_search))
 print("Score:",forest_grid_search.best_score_)
 # %%
 svc_pipe = Pipeline([
@@ -528,17 +584,16 @@ svc_pipe = Pipeline([
 ])
 
 param_grid = {
-  "preprocessor__relevant_features__keep_details": [False,True],
-  "preprocessor__prepare__num__imputer__strategy": ["mean","median"],
+  **preprocessor_params,
   "classifier__kernel": ["linear","poly","rbf"],
-  "classifier__C": [100, 10, 1.0, 0.1, 0.001],
+  "classifier__C": [0.6, 0.8, 1.0, 1.2, 1.4],
 }
 
-svc_grid_search = GridSearchCV(svc_pipe,param_grid,scoring="accuracy",cv=5,verbose=3)
+svc_grid_search = GridSearchCV(svc_pipe,param_grid,scoring="accuracy",cv=5,verbose=1)
 # %%
 svc_grid_search.fit(train_set,y_train)
 # %%
-print("Params:",svc_grid_search.best_params_)
+print("Params:",get_best_params(svc_grid_search))
 print("Score:",svc_grid_search.best_score_)
 # %% [markdown]
 # Wow! SVC came out on top with the best accuracy score.
@@ -561,38 +616,40 @@ def save_preds(predictions,name="submission"):
 save_preds(final_pred,"svc_preds")
 # %%
 # TODO: Do something with Cabin feature
-# TODO: Impute Age based on the other columns like Pclass
 # %% [markdown]
 # # Ensemble Learning
 # %%
-def get_best_params(grid_search):
-  return {key.replace("classifier__",""): val for key,val in grid_search.best_params_.items() if key.startswith("classifier__")}
-# %%
-from sklearn.ensemble import VotingClassifier
+# X_train = preprocessor.fit_transform(train_set)
+# X_test = preprocessor.fit_transform(test_set)
+# print(X_train.shape,X_test.shape)
+# # %%
+# def get_best_params(grid_search):
+#   return {key.replace("classifier__", ""): val for (key, val) in grid_search.best_params_.items() if key.startswith("classifier__")}
+# # %%
+# from sklearn.ensemble import VotingClassifier
 
-lr_clf = LogisticRegression(**get_best_params(log_grid_search))
-svc_clf = SVC(**get_best_params(svc_grid_search))
+# lr_clf = LogisticRegression(**get_best_params(log_grid_search))
+# svc_clf = SVC(**get_best_params(svc_grid_search))
 
-models = [
-  ("lr",lr_clf),
-  ("svc",svc_clf)
-]
+# models = [
+#   ("lr",lr_clf),
+#   ("svc",svc_clf)
+# ]
 
-voting_clf = VotingClassifier(estimators=models, voting="hard")
-# %%
-voting_clf.fit(X_train,y_train)
-# %%
-y_pred = voting_clf.predict(X_train)
-accuracy_score(y_train,y_pred)
-# %%
-y_pred = voting_clf.predict(X_test)
-y_pred.shape
-# %%
-final_pred = pd.DataFrame({
-  "PassengerId": test_ids,
-  "Survived": y_pred
-})
-final_pred.head()
-# %%
-save_preds(final_pred,"voting_preds")
-# %%
+# voting_clf = VotingClassifier(estimators=models, voting="hard")
+# # %%
+# voting_clf.fit(X_train,y_train)
+# # %%
+# y_pred = voting_clf.predict(X_train)
+# accuracy_score(y_train,y_pred)
+# # %%
+# y_pred = voting_clf.predict(X_test)
+# y_pred.shape
+# # %%
+# final_pred = pd.DataFrame({
+#   "PassengerId": test_ids,
+#   "Survived": y_pred
+# })
+# final_pred.head()
+# # %%
+# save_preds(final_pred,"voting_preds")
