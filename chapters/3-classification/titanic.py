@@ -1,10 +1,22 @@
 # %% [markdown]
-# # Predicting Survival on the Titan
+# # Predicting Survival on the Titanic
 # %%
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
+
+from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import cross_val_score, cross_val_predict, GridSearchCV
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, precision_recall_curve, roc_curve, roc_auc_score
+from sklearn.compose import ColumnTransformer
+from sklearn.linear_model import LogisticRegression, SGDClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
 # %%
 sns.set_theme(context="notebook",style="darkgrid",palette="muted")
 # %% [markdown]
@@ -34,8 +46,8 @@ except:
 train_ids = train_set["PassengerId"]
 test_ids = test_set["PassengerId"]
 
-train_set = train_set.drop("PassengerId",axis=1)
-test_set = test_set.drop("PassengerId",axis=1)
+train_set = train_set.drop(["PassengerId","Ticket"],axis=1)
+test_set = test_set.drop(["PassengerId","Ticket"],axis=1)
 
 train_set.head()
 # %%
@@ -54,7 +66,7 @@ test_set.info()
 # %%
 train_set.describe()
 # %%
-def show_cabin_floor(passenger_class,data=train_set):
+def get_cabin_floors(passenger_class,data=train_set):
   """
   params: passenger_class: int (1,2,3)
   returns: list of cabin floors
@@ -63,11 +75,69 @@ def show_cabin_floor(passenger_class,data=train_set):
   cabins.remove(np.nan)
   return sorted(list(set([cab[0] for cab in cabins])))
 
-print("1st class cabins:",show_cabin_floor(1))
-print("2nd class cabins:",show_cabin_floor(2))
-print("3rd class cabins:",show_cabin_floor(3))
+print("1st class cabins:",get_cabin_floors(1))
+print("2nd class cabins:",get_cabin_floors(2))
+print("3rd class cabins:",get_cabin_floors(3))
 # %%
-train_set["Name"].str.extract("(\w+)\.").value_counts()
+def update_cabin_class(row):
+  top = ["B", "C"]
+  mid = ["A", "D", "E", "T"]
+  low = ["F", "G"]
+  cabin_class = None
+
+  if (row["Cabin"] in top) or (row["Fare"] > 50):
+    cabin_class = 3
+  elif (row["Cabin"] in mid) or (25 <= row["Fare"] <= 50):
+    cabin_class = 2
+  elif (row["Cabin"] in low) or (row["Fare"] < 25):
+    cabin_class = 1
+  else:
+    print("update_cabin_class has an error!")
+  return cabin_class
+
+def fix_cabin(df):
+  """
+  Cabin class rules:
+    Top: B,C or ($50+)
+    Mid: A,D,E,T or ($25 to $50)
+    Low: F,G or (upto $25)
+  """
+  df = df.copy()
+  df["Cabin"] = df["Cabin"].str.extract("(\w{1})\w*")
+  df["Cabin"] = df.apply(update_cabin_class,axis=1)
+  return df
+
+class FixCabin(BaseEstimator, TransformerMixin):
+  def __init__(self,fix=True):
+    self.fix = fix
+
+  def fit(self,X,y=None):
+    return self
+
+  def transform(self,X):
+    if self.fix:
+      X_tr = fix_cabin(X)
+    else:
+      X_tr = X.drop("Cabin",axis=1)
+    return X_tr
+# %%
+test_pipe = Pipeline([
+  ("fix",FixCabin())
+])
+# %%
+test_pipe.fit_transform(train_set).info()
+# %%
+train_set_tr = train_set.copy()
+train_set_tr["Cabin"] = train_set_tr["Cabin"].str.extract("(\w{1})")
+# %%
+train_set_tr[train_set_tr["Cabin"].notna()].head()
+# %%
+train_set_tr[train_set_tr["Cabin"].notna()][["Cabin","Fare"]].groupby("Cabin",as_index=False).mean()
+# %%
+train_set_tr["Cabin"] = train_set_tr.apply(update_cabin_class,axis=1)
+train_set_tr["Cabin"].value_counts()
+# %%
+train_set_tr["Name"].str.extract("(\w+)\.").value_counts()
 # %%
 def title_feature(dataset):
   """
@@ -82,10 +152,10 @@ def title_feature(dataset):
   return dataset.drop("Name",axis=1)
 # %%
 train_set_tr = title_feature(train_set)
-test_set_tr = title_feature(test_set)
 train_set_tr["Title"].value_counts()
+train_set_tr = test_pipe.fit_transform(train_set_tr)
 # %%
-titanic = train_set_tr.drop(["Ticket","Cabin"],axis=1)
+titanic = train_set_tr.copy()
 titanic.head()
 # %% [markdown]
 # # Explore the data
@@ -94,6 +164,11 @@ titanic[["Survived","Sex"]].groupby("Sex",as_index=False).mean()
 # %%
 sns.countplot(data=titanic,x="Sex",hue="Survived")
 plt.show()
+# %%
+sns.countplot(data=titanic,x="Cabin",hue="Survived")
+plt.show()
+# %%
+titanic[["Survived","Cabin"]].groupby("Cabin",as_index=False).mean()
 # %%
 sns.countplot(data=titanic,x="Survived")
 plt.show()
@@ -112,6 +187,15 @@ sns.countplot(data=titanic,x="Pclass",hue="Sex")
 plt.show()
 # %%
 sns.displot(data=titanic,x="Age",kde=True)
+plt.show()
+# %%
+sns.displot(data=titanic,x="Fare",kde=True)
+plt.show()
+# %%
+sns.displot(data=titanic[titanic["Fare"] <= 300],x="Fare",kde=True)
+plt.show()
+# %%
+sns.displot(data=titanic[titanic["Fare"] <= 100],x="Fare",kde=True,hue="Pclass",multiple="stack")
 plt.show()
 # %%
 sns.displot(data=titanic,x="Age",hue="Survived",multiple="stack")
@@ -149,7 +233,7 @@ sns.countplot(data=titanic,x="FamilyMem",hue="Survived")
 plt.show()
 # %%
 # Check if passenger is alone!
-titanic["Alone"] = np.where(titanic["FamilyMem"] > 0, "No", "Yes")
+titanic["Alone"] = np.where(titanic["FamilyMem"] > 0, 0, 1)
 titanic.head()
 # %%
 sns.countplot(data=titanic,x="Alone",hue="Survived")
@@ -173,6 +257,9 @@ titanic.describe()
 sns.scatterplot(data=titanic,x="Age",y="Fare",hue="Survived")
 plt.show()
 # %%
+sns.scatterplot(data=titanic,x="Age",y="Fare",hue="Cabin")
+plt.show()
+# %%
 # Just found this out!
 titanic[titanic["Embarked"].isna()]
 # Both are of Pclass 1
@@ -189,9 +276,6 @@ titanic["Embarked"].value_counts()
 # %% [markdown]
 # # Prepare the data
 # %%
-from sklearn.pipeline import Pipeline
-from sklearn.base import BaseEstimator, TransformerMixin
-
 class AdditionalFeatures(BaseEstimator, TransformerMixin):
   def __init__(self):
     return None
@@ -216,9 +300,9 @@ y_train = titanic["Survived"].to_numpy()
 titanic = titanic.drop("Survived",axis=1)
 titanic.info()
 # %%
-from sklearn.preprocessing import StandardScaler
-from sklearn.impute import SimpleImputer
-
+titanic = test_pipe.fit_transform(titanic)
+titanic.head()
+# %%
 titanic_num = titanic[["Age","Fare","SibSp","Parch"]]
 
 num_pipeline = Pipeline([
@@ -228,8 +312,6 @@ num_pipeline = Pipeline([
 
 num_pipeline.fit_transform(titanic_num).shape
 # %%
-from sklearn.preprocessing import OneHotEncoder
-
 titanic_cat = titanic[["Sex","Embarked","Title","Alone"]]
 
 cat_pipeline = Pipeline([
@@ -240,16 +322,13 @@ cat_pipeline.fit_transform(titanic_cat).shape
 # %%
 pd.get_dummies(titanic_cat).head()
 # %%
-from sklearn.compose import ColumnTransformer
-
 num_attribs = list(titanic_num.columns)
 cat_attribs = list(titanic_cat.columns)
 
 col_trans = ColumnTransformer([
   ("num",num_pipeline,num_attribs),
-  ("cat",cat_pipeline,cat_attribs),
-  ("ord","passthrough",["Pclass"])
-])
+  ("cat",cat_pipeline,cat_attribs)
+], remainder="passthrough")
 
 col_trans.fit_transform(titanic).shape
 # %%
@@ -263,6 +342,8 @@ def fill_values(df, col_name):
     val = df[df["Pclass"] == 1]["Embarked"].value_counts().index[0]
     df = df.fillna({"Embarked": val})
   elif col_name == "Age":
+    # Age according to the Pclass.
+    # Age according to Fare price.
     for n in range(1,4):
       mean_age = df[df["Pclass"] == n]["Age"].mean()
       df.loc[df["Pclass"] == n, "Age"] = df.loc[df["Pclass"] == n, "Age"].fillna(mean_age)
@@ -285,7 +366,8 @@ class FillMissingFeatures(BaseEstimator, TransformerMixin):
       X_tr = fill_values(X_tr, "Age")
       X_tr = fill_values(X_tr, "Fare")
     else:
-      X_tr = X.copy()
+      # Test set has a missing Fare feature vector.
+      X_tr = fill_values(X, "Fare")
     return X_tr
 # %%
 test_pipe = Pipeline([
@@ -299,9 +381,11 @@ test_pipe.fit_transform(test_set).info()
 preprocessor = Pipeline([
   ("additional_features", AdditionalFeatures()),
   ("fill_missing", FillMissingFeatures()),
+  ("fix_cabin", FixCabin()),
   ("prepare", col_trans)
 ])
 # %%
+train_set = train_set.drop("Survived",axis=1)
 X_train = preprocessor.fit_transform(train_set)
 X_test = preprocessor.fit_transform(test_set)
 print(X_train.shape,X_test.shape)
@@ -312,35 +396,26 @@ print(X_train.shape,X_test.shape)
 # * RandomForestClassifier
 # * KNeighborsClassifier
 # %%
-from sklearn.linear_model import SGDClassifier
-
 sgd_clf = SGDClassifier(random_state=42)
 sgd_clf.fit(X_train,y_train)
 # %%
-sgd_clf.predict(X_train[:3])
-# %%
 y_train[:3]
 # %%
-from sklearn.model_selection import cross_val_score
-
+sgd_clf.predict(X_train[:3])
+# %%
 cross_val_score(sgd_clf,X_train,y_train,cv=5,scoring="accuracy").mean()
 # %%
-from sklearn.model_selection import cross_val_predict
-
 y_pred_sgd = cross_val_predict(sgd_clf,X_train,y_train,cv=5)
 # %%
-from sklearn.metrics import confusion_matrix
-
 confusion_matrix(y_train,y_pred_sgd)
 # %%
-from sklearn.metrics import precision_score,recall_score
-
 print("Precision:",precision_score(y_train,y_pred_sgd))
 print("Recall:",recall_score(y_train,y_pred_sgd))
 # %%
-from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
-
 def model_scores(model,X_train,y_true,cv=5):
+  """
+  Print a model's accuracy, precision, recall, and f1 scores.
+  """
   y_pred = cross_val_predict(model,X_train,y_true,cv=cv)
   print(confusion_matrix(y_true,y_pred))
   print("Accuracy:",accuracy_score(y_true,y_pred))
@@ -350,8 +425,6 @@ def model_scores(model,X_train,y_true,cv=5):
 # %%
 model_scores(sgd_clf,X_train,y_train)
 # %%
-from sklearn.metrics import precision_recall_curve
-
 y_scores_sgd = cross_val_predict(sgd_clf,X_train,y_train,cv=5,method="decision_function")
 
 prec_sgd, recall_sgd, thres_sgd = precision_recall_curve(y_train,y_scores_sgd)
@@ -373,8 +446,6 @@ def plot_precision_recall(precisions,recalls,label=None):
 plot_precision_recall(prec_sgd,recall_sgd)
 plt.show()
 # %%
-from sklearn.metrics import roc_curve, roc_auc_score
-
 fpr_sgd,tpr_sgd,thres_sgd = roc_curve(y_train,y_scores_sgd)
 
 def plot_roc_curve(fpr,tpr,label=None):
@@ -388,8 +459,6 @@ plt.show()
 # %%
 roc_auc_score(y_train,y_scores_sgd)
 # %%
-from sklearn.linear_model import LogisticRegression
-
 log_clf = LogisticRegression(random_state=42)
 log_clf.fit(X_train,y_train)
 # %%
@@ -413,8 +482,6 @@ plt.plot(fpr_sgd,tpr_sgd,label="SGD")
 plt.legend()
 plt.show()
 # %%
-from sklearn.ensemble import RandomForestClassifier
-
 forest_clf = RandomForestClassifier(random_state=42)
 forest_clf.fit(X_train,y_train)
 # %%
@@ -440,8 +507,6 @@ plt.plot(fpr_log,tpr_log,label="Logistic")
 plt.legend()
 plt.show()
 # %%
-from sklearn.neighbors import KNeighborsClassifier
-
 knn_clf = KNeighborsClassifier()
 knn_clf.fit(X_train,y_train)
 # %%
@@ -469,8 +534,6 @@ plt.plot(fpr_for,tpr_for,label="RandomForest")
 plt.legend()
 plt.show()
 # %%
-from sklearn.svm import SVC
-
 svc_clf = SVC(random_state=42)
 svc_clf.fit(X_train,y_train)
 # %%
@@ -526,20 +589,21 @@ model_scores(svc_clf,X_train,y_train)
 
 # We saw that `LogisticRegression`, `RandomForestClassifier`, and `SVC` perform well on our dataset. Hence, we will try to tune their hyperparameters to find an optimal model that generalizes well on the test set.
 # %%
-y_train = train_set["Survived"].to_numpy()
-train_set = train_set.drop("Survived",axis=1)
 train_set.head()
 # %%
 preprocessor_params = {
   "preprocessor__fill_missing__fill_missing_by_pclass": [True,False],
-  "preprocessor__prepare__num__imputer__strategy": ["mean","median"]
+  "preprocessor__prepare__num__imputer__strategy": ["mean","median"],
+  "preprocessor__fix_cabin__fix": [True,False]
 }
 # %%
 def get_best_params(grid_search):
   return {key.replace("classifier__", ""): val for (key, val) in grid_search.best_params_.items() if key.startswith("classifier__")}
-# %%
-from sklearn.model_selection import GridSearchCV
 
+verbose_lvl = 2
+if in_kaggle:
+  verbose_lvl = 1
+# %%
 log_pipe = Pipeline([
   ("preprocessor",preprocessor),
   ("classifier",LogisticRegression(random_state=42))
@@ -548,15 +612,16 @@ log_pipe = Pipeline([
 param_grid = {
   **preprocessor_params,
   "classifier__solver": ["liblinear","lbfgs"],
-  "classifier__max_iter": [100,200,300],
+  "classifier__max_iter": [1000],
   "classifier__penalty": ["l2"],
-  "classifier__C": [0.6, 0.8, 1.0, 1.2, 1.4]
+  "classifier__C": [100, 10, 1.0, 0.1, 0.01]
 }
 
-log_grid_search = GridSearchCV(log_pipe,param_grid,scoring="accuracy",cv=5,verbose=1)
+log_grid_search = GridSearchCV(log_pipe,param_grid,scoring="accuracy",cv=5,verbose=verbose_lvl)
 # %%
 log_grid_search.fit(train_set,y_train)
 # %%
+print(log_grid_search.best_params_)
 print("Params:",get_best_params(log_grid_search))
 print("Score:",log_grid_search.best_score_)
 # %%
@@ -567,16 +632,37 @@ forest_pipe = Pipeline([
 
 param_grid = {
   **preprocessor_params,
-  "classifier__n_estimators": [100,200,250,300],
+  "classifier__n_estimators": [200,225,250],
   "classifier__max_features": ["sqrt","log2"],
 }
 
-forest_grid_search = GridSearchCV(forest_pipe,param_grid,scoring="accuracy",cv=5,verbose=1)
+forest_grid_search = GridSearchCV(forest_pipe,param_grid,scoring="accuracy",cv=5,verbose=verbose_lvl)
 # %%
 forest_grid_search.fit(train_set,y_train)
 # %%
+print(forest_grid_search.best_params_)
 print("Params:",get_best_params(forest_grid_search))
 print("Score:",forest_grid_search.best_score_)
+# %%
+knn_pipe = Pipeline([
+  ("preprocessor", preprocessor),
+  ("classifier", KNeighborsClassifier())
+])
+
+param_grid = {
+  **preprocessor_params,
+  "classifier__weights": ["uniform","distance"],
+  "classifier__n_neighbors": [7,9,11],
+  "classifier__metric": ["minkowski","manhattan","euclidean"]
+}
+
+knn_grid_search = GridSearchCV(knn_pipe,param_grid,scoring="accuracy",cv=5,verbose=verbose_lvl)
+# %%
+knn_grid_search.fit(train_set,y_train)
+# %%
+print(knn_grid_search.best_params_)
+print("Params:",get_best_params(knn_grid_search))
+print("Score:",knn_grid_search.best_score_)
 # %%
 svc_pipe = Pipeline([
   ("preprocessor", preprocessor),
@@ -585,20 +671,35 @@ svc_pipe = Pipeline([
 
 param_grid = {
   **preprocessor_params,
-  "classifier__kernel": ["linear","poly","rbf"],
-  "classifier__C": [0.6, 0.8, 1.0, 1.2, 1.4],
+  "classifier__kernel": ["poly","rbf"],
+  "classifier__C": [0.1, 1.0, 10.0],
+  "classifier__gamma": ["scale","auto"]
 }
 
-svc_grid_search = GridSearchCV(svc_pipe,param_grid,scoring="accuracy",cv=5,verbose=1)
+svc_grid_search = GridSearchCV(svc_pipe,param_grid,scoring="accuracy",cv=5,verbose=verbose_lvl)
 # %%
 svc_grid_search.fit(train_set,y_train)
 # %%
+print(svc_grid_search.best_params_)
 print("Params:",get_best_params(svc_grid_search))
 print("Score:",svc_grid_search.best_score_)
+# %%
+model_names = ["Logistic","RandomForest","KNeighbors","SVC"]
+grids = [log_grid_search,forest_grid_search,knn_grid_search,svc_grid_search]
+scores = []
+
+for (model,grid) in zip(model_names,grids):
+  score = grid.best_score_
+  print(f"{model} Score: {score}")
+  scores.append(score)
+
+(val, idx) = max((val,idx) for (idx,val) in enumerate(scores))
+best_model = grids[idx]
+best_model
 # %% [markdown]
 # Wow! SVC came out on top with the best accuracy score.
 # %%
-y_pred = svc_grid_search.predict(test_set)
+y_pred = best_model.predict(test_set)
 y_pred.shape
 # %%
 final_pred = pd.DataFrame({
@@ -613,43 +714,4 @@ def save_preds(predictions,name="submission"):
   else:
     predictions.to_csv(f"{path}/{name}.csv",index=False)
 # %%
-save_preds(final_pred,"svc_preds")
-# %%
-# TODO: Do something with Cabin feature
-# %% [markdown]
-# # Ensemble Learning
-# %%
-# X_train = preprocessor.fit_transform(train_set)
-# X_test = preprocessor.fit_transform(test_set)
-# print(X_train.shape,X_test.shape)
-# # %%
-# def get_best_params(grid_search):
-#   return {key.replace("classifier__", ""): val for (key, val) in grid_search.best_params_.items() if key.startswith("classifier__")}
-# # %%
-# from sklearn.ensemble import VotingClassifier
-
-# lr_clf = LogisticRegression(**get_best_params(log_grid_search))
-# svc_clf = SVC(**get_best_params(svc_grid_search))
-
-# models = [
-#   ("lr",lr_clf),
-#   ("svc",svc_clf)
-# ]
-
-# voting_clf = VotingClassifier(estimators=models, voting="hard")
-# # %%
-# voting_clf.fit(X_train,y_train)
-# # %%
-# y_pred = voting_clf.predict(X_train)
-# accuracy_score(y_train,y_pred)
-# # %%
-# y_pred = voting_clf.predict(X_test)
-# y_pred.shape
-# # %%
-# final_pred = pd.DataFrame({
-#   "PassengerId": test_ids,
-#   "Survived": y_pred
-# })
-# final_pred.head()
-# # %%
-# save_preds(final_pred,"voting_preds")
+save_preds(final_pred)
