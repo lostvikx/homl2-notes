@@ -248,3 +248,25 @@ from sklearn.metrics import precision_score, recall_score
 
 print("Precision: {:.2f}%".format(precision_score(y_test, y_pred) * 100))
 print("Recall: {:.2f}%".format(recall_score(y_test, y_pred) * 100))
+# %%
+from sklearn.model_selection import GridSearchCV
+
+pipe = Pipeline([
+  ("preprocessor", preprocessor),
+  ("classifier", LogisticRegression(max_iter=1000, random_state=42))
+])
+
+param_grid = {
+  "preprocessor__email_to_counter__lowercase": [True, False],
+  "preprocessor__email_to_counter__replace_nums": [True, False],
+  "preprocessor__email_to_counter__stemming": [True, False],
+  "preprocessor__counter_to_vector__vocab_size": [500, 1000]
+}
+
+grid_search = GridSearchCV(pipe, param_grid, cv=3, scoring="accuracy", verbose=3)
+# %%
+grid_search.fit(X_train, y_train)
+# %%
+y_pred = grid_search.predict(X_test)
+print("Precision: {:.2f}%".format(precision_score(y_test, y_pred) * 100))
+print("Recall: {:.2f}%".format(recall_score(y_test, y_pred) * 100))
