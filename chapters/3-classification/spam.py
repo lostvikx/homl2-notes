@@ -2,6 +2,7 @@
 import email
 import email.policy
 import os
+import joblib
 import tarfile
 
 import numpy as np
@@ -263,9 +264,15 @@ param_grid = {
   "preprocessor__counter_to_vector__vocab_size": [500, 1000]
 }
 
-grid_search = GridSearchCV(pipe, param_grid, cv=3, scoring="accuracy", verbose=3)
-# %%
-grid_search.fit(X_train, y_train)
+model_path = os.path.join("model", "log_clf.pkl")
+
+try:
+  grid_search = joblib.load(model_path)
+except FileNotFoundError:
+  print("Saving Model...")
+  grid_search = GridSearchCV(pipe, param_grid, cv=3, scoring="accuracy", verbose=3)
+  grid_search.fit(X_train, y_train)
+  joblib.dump(grid_search.best_estimator_, model_path)
 # %%
 y_pred = grid_search.predict(X_test)
 print("Precision: {:.2f}%".format(precision_score(y_test, y_pred) * 100))
