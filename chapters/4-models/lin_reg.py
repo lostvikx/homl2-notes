@@ -11,7 +11,7 @@ sns.set_theme(context="notebook", palette="muted")
 X = 2 * np.random.rand(100, 1)  # domain: [0, 2)
 y = 4 + (3 * X) + np.random.randn(100, 1)  # y = 4 + 3x1
 # %%
-plt.plot(X, y, "b.")
+plt.scatter(X, y, s=10)
 plt.xlabel("X1")
 plt.ylabel("y")
 plt.axis([0, 2, 0, 15])
@@ -28,8 +28,8 @@ X_new_b = np.c_[np.ones((2, 1)), X_new]  # x0 = 1 to each instance
 y_pred = X_new_b.dot(theta_best)
 y_pred
 # %%
+plt.scatter(X, y, s=10)
 plt.plot(X_new, y_pred, "r-", label="Predictions")
-plt.plot(X, y, "b.")
 plt.axis([0, 2, 0, 15])
 plt.legend()
 plt.xlabel("X1")
@@ -63,7 +63,7 @@ print(theta)
 # %%
 f, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(15, 5))
 
-f.suptitle("Comparing Different Learning Rates")
+f.suptitle("GD Different Learning Rates")
 f.tight_layout()
 ax1.set_ylabel("y")
 
@@ -87,7 +87,7 @@ plot_gd(0.1, ax2)
 plot_gd(0.5, ax3)
 
 for ax in (ax1, ax2, ax3):
-  ax.plot(X, y, "b.")
+  ax.scatter(X, y, s=10)
   ax.axis([0, 2, -5, 15])
   ax.set_xlabel("X1")
   ax.legend()
@@ -116,7 +116,7 @@ print(theta)
 # %%
 f, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(10,5))
 
-f.suptitle("Stocastic Gradient Descent")
+f.suptitle("Stocastic GD")
 f.tight_layout()
 ax1.set_ylabel("y")
 
@@ -146,9 +146,74 @@ plot_sgd(learning_schedule, ax1, title="Learning Schedule")
 plot_sgd(lambda x: 0.1, ax2, title="Constant Learning Rate")
 
 for ax in (ax1, ax2):
-  ax.plot(X, y, "b.")
+  ax.scatter(X, y, s=10)
   ax.axis([0, 2, -5, 15])
   ax.set_xlabel("X1")
   ax.legend()
 
+plt.show()
+# %%
+from sklearn.linear_model import SGDRegressor
+
+sgd_reg = SGDRegressor(max_iter=1000, tol=1e-3, penalty=None, eta0=0.1, random_state=42)
+sgd_reg.fit(X, y.ravel())
+# %%
+print(sgd_reg.intercept_, sgd_reg.coef_)
+# %%
+m = 100
+X = 6 * np.random.rand(m, 1) - 3
+y = 0.5 * X**2 + X + 2 + np.random.randn(m, 1)
+# %%
+plt.scatter(X, y, s=10)
+plt.xlabel("X1")
+plt.ylabel("y")
+plt.axis([-3, 3, 0, 10])
+plt.show()
+# %%
+from sklearn.preprocessing import PolynomialFeatures
+
+poly_features = PolynomialFeatures(degree=2, include_bias=False)
+X_poly = poly_features.fit_transform(X)
+
+print(X[0], X_poly[0])
+# %%
+lin_reg = LinearRegression()
+lin_reg.fit(X_poly, y)
+
+print(lin_reg.intercept_, lin_reg.coef_)
+# %%
+y_poly_pred = lin_reg.predict(X_poly)
+
+# Remember to sort values to plot a smooth curve.
+sorted_zip = sorted(zip(X, y_poly_pred), key=lambda x: x[0])
+X_new, y_poly_pred = zip(*sorted_zip)
+
+plt.title("Polynomial Regression")
+plt.scatter(X, y, s=10)
+plt.plot(X_new, y_poly_pred, "r-", label="Predictions")
+plt.xlabel("X1")
+plt.ylabel("y")
+plt.axis([-3, 3, 0, 10])
+plt.legend()
+plt.show()
+# %%
+def plot_poly_pred(degree, line_style="r-", X=X, y=y):
+  poly_features = PolynomialFeatures(degree=degree, include_bias=False)
+  X_poly = poly_features.fit_transform(X)
+  lin_reg = LinearRegression()
+  lin_reg.fit(X_poly, y)
+  y_poly_pred = lin_reg.predict(X_poly)
+  sorted_zip = sorted(zip(X, y_poly_pred), key=lambda x: x[0])
+  X_new, y_poly_pred = zip(*sorted_zip)
+  plt.plot(X_new, y_poly_pred, line_style, label=f"{degree}")
+
+plt.title("High Degree Polynomial Regression")
+plt.scatter(X, y, s=10)
+plot_poly_pred(degree=1, line_style="C1-")
+plot_poly_pred(degree=10, line_style="C2-")
+plot_poly_pred(degree=30, line_style="C3-")
+plt.xlabel("X1")
+plt.ylabel("y")
+plt.axis([-3, 3, 0, 10])
+plt.legend()
 plt.show()
