@@ -5,3 +5,4 @@
 3. [Pipeline Guide](https://scikit-learn.org/stable/tutorial/statistical_inference/putting_together.html)
 4. [Column Transformer](https://stackoverflow.com/questions/54160370/how-to-use-sklearn-column-transformer)
 5. [Tuning Hyperparameters for Classification](https://machinelearningmastery.com/hyperparameters-for-classification-machine-learning-algorithms/)
+6. [Polynomial Regression](https://towardsdatascience.com/polynomial-regression-bbe8b9d97491)

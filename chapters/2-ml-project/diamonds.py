@@ -280,28 +280,60 @@ forest_pipeline = Pipeline([
 
 param_grid = {
   "preparation__feature_selection__k": [4,6,8],
-  "prediction__n_estimators": [200,300],
-  "prediction__max_features": [2,4,6,8]
+  "prediction__n_estimators": [200,250,300],
+  "prediction__max_features": [2,4,6]
 }
 
-grid_search = GridSearchCV(forest_pipeline,param_grid,scoring="neg_mean_squared_error",return_train_score=True,cv=5)
+forest_grid = GridSearchCV(forest_pipeline,param_grid,scoring="neg_mean_squared_error",return_train_score=True,cv=5)
 # %%
-grid_search.fit(diamonds,diamonds_labels)
+forest_grid.fit(diamonds,diamonds_labels)
 # %%
-grid_search.best_params_
+forest_grid.best_params_
 # %%
-final_model = grid_search.best_estimator_
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+
+lin_reg_pipe = Pipeline([
+  ("preparation", preparation_and_top_features),
+  ("preprocessing", PolynomialFeatures(include_bias=False)),
+  ("prediction", LinearRegression())
+])
+
+param_grid = {
+  "preparation__feature_selection__k": [4,6,8],
+  "preprocessing__degree": [1,2,3,4],
+}
+
+lin_grid = GridSearchCV(lin_reg_pipe, param_grid, scoring="neg_mean_squared_error", return_train_score=True, cv=5)
+# %%
+lin_grid.fit(diamonds,diamonds_labels)
+# %%
+lin_grid.best_params_
+# %%
+model_names = ["RandomForest", "LinearReg"]
+grids = [forest_grid, lin_grid]
+scores = []
+
+for (model,grid) in zip(model_names,grids):
+  score = grid.best_score_
+  print(f"{model} Score: {score:.2f}")
+  scores.append(score)
+
+(val, idx) = max((val,idx) for (idx,val) in enumerate(scores))
+best_model = grids[idx]
+best_model
 # %% [markdown]
 # 95% confidence interval for the test RMSE:
 # %%
-final_pred = final_model.predict(X_test)
-final_mse = mean_squared_error(y_test,final_pred)
-np.sqrt(final_mse)
+y_pred = best_model.predict(X_test)
+np.sqrt(mean_squared_error(y_test, y_pred))
 # %%
 from scipy import stats
-confidence = 0.95
-squared_errors = (final_pred - y_test) ** 2
-final_rmse = np.sqrt(stats.t.interval(confidence,len(squared_errors)-1,loc=final_mse,scale=stats.sem(squared_errors)))
-list(final_rmse)
-# %% [markdown]
-# [Polynomial Features](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.PolynomialFeatures.html)
+
+def rmse_interval(y_true, y_pred, confidence=0.95):
+  squared_errors = (y_pred - y_true) ** 2
+  final_rmse = np.sqrt(stats.t.interval(confidence,len(squared_errors)-1,loc=mean_squared_error(y_true, y_pred),scale=stats.sem(squared_errors)))
+  return tuple(final_rmse)
+# %%
+rmse_rng = rmse_interval(y_test, y_pred)
+print("The RandomForest model can expect a RMSE from {0:.2f} to {1:.2f}!".format(rmse_rng[0], rmse_rng[1]))
