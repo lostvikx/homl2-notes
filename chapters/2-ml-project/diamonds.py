@@ -268,11 +268,9 @@ np.sqrt(svr_mse)
 # %% [markdown]
 # # Complete Pipeline
 # %%
-forest_reg = RandomForestRegressor(random_state=42)
-
 forest_pipeline = Pipeline([
   ("preparation", preparation_and_top_features),
-  ("prediction",forest_reg)
+  ("prediction",RandomForestRegressor(random_state=42))
 ])
 
 # Regression problem: max_features: n_features/3
@@ -280,8 +278,8 @@ forest_pipeline = Pipeline([
 
 param_grid = {
   "preparation__feature_selection__k": [4,6,8],
-  "prediction__n_estimators": [200,250,300],
-  "prediction__max_features": [2,4,6]
+  "prediction__n_estimators": [200,300,400],
+  "prediction__max_features": ["sqrt","log2",None]
 }
 
 forest_grid = GridSearchCV(forest_pipeline,param_grid,scoring="neg_mean_squared_error",return_train_score=True,cv=5)
