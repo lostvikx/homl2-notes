@@ -50,3 +50,10 @@ Picks a random instance in the training set at every step and compute the gradie
 ## Mini-batch GD
 Instead of computing the gradients based on the full training set or based on a single instance, Mini-batch GD computes the gradients on a small random set of instances called mini-batches.
 
+## Polynomial Regression
+Use a linear model to fit nonlinear data by adding powers of each of each features as new features, then train the linear model on this extended set of features.
+
+* Note: When there are multiple features Polynomial Regression is capable of finding relationships between features.
+* PolynomialFeatures(degree=d) transforms an array with n features into an array containing (n + d)! / (d! * n!) features.
+
+## Learning Curves

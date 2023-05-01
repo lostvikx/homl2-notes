@@ -217,3 +217,50 @@ plt.ylabel("y")
 plt.axis([-3, 3, 0, 10])
 plt.legend()
 plt.show()
+# %%
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
+
+m = 100
+X = 6 * np.random.rand(m, 1) - 3
+y = (1.6 * X**3) + (0.8 * X**2) + X + 2 + np.random.randn(m, 1)
+
+def plot_learning_curves(model, X, y):
+  X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
+  train_errors, val_errors = [], []
+
+  for m in range(1, len(X_train)):
+    model.fit(X_train[:m], y_train[:m])
+    y_train_pred = model.predict(X_train[:m])
+    y_val_pred = model.predict(X_val)
+    train_errors.append(mean_squared_error(y_train[:m], y_train_pred))
+    val_errors.append(mean_squared_error(y_val, y_val_pred))
+
+  plt.plot(np.sqrt(train_errors), "r-", label="Train")
+  plt.plot(np.sqrt(val_errors), "b-", label="Validation")
+  plt.title("Learning Curves")
+  plt.xlabel("Training Set Size")
+  plt.ylabel("RMSE")
+  plt.legend()
+# %%
+plot_learning_curves(LinearRegression(), X, y)
+plt.axis([0, 80, 0, 20])
+plt.show()
+# %% [markdown]
+# ## Explaination
+# First, there are only a few training data (instances), hences the RMSE is 0. But, as new instances are added, it becomes difficult for the model to fit the data perfectly, and the error goes up until it reaches a plateau. As for the validation set, because in the beginning only a few instances were used to train the model, it was bad at generalizing, hence the high error. But, as more training instances were provided to train the model, the validation error slowly goes down to a plateau.
+# * Both curves have reach plateau, and are fairly high.
+# * This is a clear case of model underfitting the training data.
+# %%
+from sklearn.pipeline import Pipeline
+
+poly_reg = Pipeline([
+  ("poly_features", PolynomialFeatures(degree=10, include_bias=False)),
+  ("lin_reg", LinearRegression())
+])
+
+
+plot_learning_curves(poly_reg, X, y)
+plt.axis([0, 80, 0, 3])
+plt.show()
+# %%
