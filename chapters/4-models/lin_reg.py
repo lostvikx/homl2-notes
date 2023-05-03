@@ -1,7 +1,7 @@
 # %%
 import numpy as np
-from matplotlib import pyplot as plt
 import seaborn as sns
+from matplotlib import pyplot as plt
 # %%
 sns.set_theme(context="notebook", palette="muted")
 # %% [markdown]
@@ -259,8 +259,56 @@ poly_reg = Pipeline([
   ("lin_reg", LinearRegression())
 ])
 
-
 plot_learning_curves(poly_reg, X, y)
 plt.axis([0, 80, 0, 3])
 plt.show()
+# %%
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
+
+m = 40
+X = 6 * np.random.rand(m, 1) - 3
+noise = (2 * np.random.randn(m, 1))
+y = (0.5 * X) + 5 + noise
+
+def plot_ridge(X, y, ax, degree, alpha, line_style):
+  """
+  Plot the ridge regularization line of fit
+  """
+  model = Pipeline([
+    ("poly_features", PolynomialFeatures(degree=degree, include_bias=False)),
+    ("std_scaler", StandardScaler()),
+    ("ridge", Ridge(alpha=alpha, solver="cholesky", random_state=42))
+  ])
+
+  model.fit(X, y)
+  y_pred = model.predict(X)
+  
+  sorted_zip = sorted(zip(X, y_pred), key=lambda x: x[0])
+  X, y_pred = zip(*sorted_zip)
+
+  ax.plot(X, y_pred, line_style, label=f"a={alpha}")
+
+f, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(10,5))
+
+f.suptitle("Ridge Regression")
+f.tight_layout()
+ax1.set_ylabel("y")
+
+plot_ridge(X, y, ax=ax1, degree=1, alpha=0, line_style="C1--")
+plot_ridge(X, y, ax=ax1, degree=1, alpha=10, line_style="C2:")
+plot_ridge(X, y, ax=ax1, degree=1, alpha=100, line_style="C3-")
+
+plot_ridge(X, y, ax=ax2, degree=10, alpha=0, line_style="C1--")
+plot_ridge(X, y, ax=ax2, degree=10, alpha=0.1, line_style="C2:")
+plot_ridge(X, y, ax=ax2, degree=10, alpha=1, line_style="C3-")
+
+for ax in (ax1, ax2):
+  ax.scatter(X, y, s=10)
+  ax.legend()
+
+plt.show()
+# %% [markdown]
+# * Note: As alpha increases, the predictions becomes less extreme or more reasonable. The model's variance (fit) decreases, but bias (error) increases.
+# * Note: The right plot shows a polynomial of degree 10, visualize how Ridge generalizes the fit.
 # %%

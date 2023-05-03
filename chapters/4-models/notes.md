@@ -57,3 +57,5 @@ Use a linear model to fit nonlinear data by adding powers of each of each featur
 * PolynomialFeatures(degree=d) transforms an array with n features into an array containing (n + d)! / (d! * n!) features.
 
 ## Learning Curves
+We use learning curves to understand if the model is overfitting or underfitting the training data.
+
