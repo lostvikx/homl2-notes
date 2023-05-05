@@ -59,3 +59,17 @@ Use a linear model to fit nonlinear data by adding powers of each of each featur
 ## Learning Curves
 We use learning curves to understand if the model is overfitting or underfitting the training data.
 
+## Regularized Linear Models
+There are three main types:
+1. Ridge Regression
+2. Lasso Regression
+3. Elastic Net
+
+The goal of these regularized regression is to find a line (or a hyperplane in higher dimensions) that best fits the data by minimizing the sum of the squared differences between the predicted values and the actual values, while also adding a penalty/regularization term to the regression equation that prevents the model from overfitting to the training data.
+
+### Ridge Regression
+Ridge regression adds a penalty term that is proportional to the square of the magnitude of the coefficients. This penalty term shrinks the coefficients towards zero, but it does not set any of them exactly to zero. As a result, ridge regression is particularly useful when there are many variables in the data that are potentially related to the outcome variable and you want to identify the most important variables.
+
+### Lasso Regression
+Lasso regression, on the other hand, adds a penalty term that is proportional to the absolute value of the coefficients. This penalty term can set some of the coefficients to exactly zero, which makes Lasso regression particularly useful for feature selection when there are many variables in the data and you want to identify a smaller subset of the most important variables.
+

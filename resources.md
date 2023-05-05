@@ -6,3 +6,4 @@
 4. [Column Transformer](https://stackoverflow.com/questions/54160370/how-to-use-sklearn-column-transformer)
 5. [Tuning Hyperparameters for Classification](https://machinelearningmastery.com/hyperparameters-for-classification-machine-learning-algorithms/)
 6. [Polynomial Regression](https://towardsdatascience.com/polynomial-regression-bbe8b9d97491)
+7. [Regularization in Linear Models](https://towardsdatascience.com/regularization-in-machine-learning-76441ddcf99a)

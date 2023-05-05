@@ -1,9 +1,12 @@
 # %%
 import numpy as np
-import seaborn as sns
 from matplotlib import pyplot as plt
 # %%
-sns.set_theme(context="notebook", palette="muted")
+theme_name = "fast"
+try:
+  plt.style.use(theme_name)
+except:
+  print(f"Cannot use Pyplot theme: {theme_name}!")
 # %% [markdown]
 # * y = h(theta), y = theta.T * x
 # * theta_best = inv(X.T * X) * X.T * y, theta_best: is the value of theta that minimizes the cost function
@@ -268,7 +271,7 @@ from sklearn.linear_model import Ridge
 
 m = 40
 X = 6 * np.random.rand(m, 1) - 3
-noise = (2 * np.random.randn(m, 1))
+noise = np.random.randn(m, 1)
 y = (0.5 * X) + 5 + noise
 
 def plot_ridge(X, y, ax, degree, alpha, line_style):
@@ -305,10 +308,56 @@ plot_ridge(X, y, ax=ax2, degree=10, alpha=1, line_style="C3-")
 
 for ax in (ax1, ax2):
   ax.scatter(X, y, s=10)
+  ax.set_xlabel("X1")
   ax.legend()
 
 plt.show()
+# %%
+sgd_reg = SGDRegressor(loss="squared_error", penalty="l2")
+sgd_reg.fit(X, y.ravel())
+sgd_reg.predict([[1.5]])
 # %% [markdown]
 # * Note: As alpha increases, the predictions becomes less extreme or more reasonable. The model's variance (fit) decreases, but bias (error) increases.
 # * Note: The right plot shows a polynomial of degree 10, visualize how Ridge generalizes the fit.
+# %%
+from sklearn.linear_model import Lasso
+
+def plot_lasso(X, y, ax, degree, alpha, line_style):
+  """
+  Plot the lasso regularization line of fit
+  """
+  model = Pipeline([
+    ("poly_features", PolynomialFeatures(degree=degree, include_bias=False)),
+    ("std_scaler", StandardScaler()),
+    ("lasso", Lasso(alpha=alpha, random_state=42, tol=0.1))
+  ])
+
+  model.fit(X, y)
+  y_pred = model.predict(X)
+  
+  sorted_zip = sorted(zip(X, y_pred), key=lambda x: x[0])
+  X, y_pred = zip(*sorted_zip)
+
+  ax.plot(X, y_pred, line_style, label=f"a={alpha}")
+
+f, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(10,5))
+
+f.suptitle("Lasso Regression")
+f.tight_layout()
+ax1.set_ylabel("y")
+
+plot_lasso(X, y, ax=ax1, degree=1, alpha=0.001, line_style="C1--")
+plot_lasso(X, y, ax=ax1, degree=1, alpha=0.1, line_style="C2:")
+plot_lasso(X, y, ax=ax1, degree=1, alpha=0.5, line_style="C3-")
+
+plot_lasso(X, y, ax=ax2, degree=10, alpha=0.001, line_style="C1--")
+plot_lasso(X, y, ax=ax2, degree=10, alpha=0.1, line_style="C2:")
+plot_lasso(X, y, ax=ax2, degree=10, alpha=0.5, line_style="C3-")
+
+for ax in (ax1, ax2):
+  ax.scatter(X, y, s=10)
+  ax.set_xlabel("X1")
+  ax.legend()
+
+plt.show()
 # %%
