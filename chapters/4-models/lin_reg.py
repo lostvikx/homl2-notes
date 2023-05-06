@@ -329,7 +329,7 @@ def plot_lasso(X, y, ax, degree, alpha, line_style):
   model = Pipeline([
     ("poly_features", PolynomialFeatures(degree=degree, include_bias=False)),
     ("std_scaler", StandardScaler()),
-    ("lasso", Lasso(alpha=alpha, random_state=42, tol=0.1))
+    ("lasso", Lasso(alpha=alpha, random_state=42, tol=0.1, max_iter=10000))
   ])
 
   model.fit(X, y)
@@ -353,6 +353,49 @@ plot_lasso(X, y, ax=ax1, degree=1, alpha=0.5, line_style="C3-")
 plot_lasso(X, y, ax=ax2, degree=10, alpha=0.001, line_style="C1--")
 plot_lasso(X, y, ax=ax2, degree=10, alpha=0.1, line_style="C2:")
 plot_lasso(X, y, ax=ax2, degree=10, alpha=0.5, line_style="C3-")
+
+for ax in (ax1, ax2):
+  ax.scatter(X, y, s=10)
+  ax.set_xlabel("X1")
+  ax.legend()
+
+plt.show()
+# %%
+m = 50
+X = 4 * np.random.rand(m, 1) - 2
+noise = np.random.randn(m, 1)
+y = (0.5 * X**2) + (1.2 * X) + 5 + noise
+# %%
+from sklearn.linear_model import ElasticNet
+
+def plot_elastic_net(X, y, ax, degree, alpha, l1_ratio, line_style):
+  model = Pipeline([
+    ("poly_features", PolynomialFeatures(degree=degree)),
+    ("std_scaler", StandardScaler()),
+    ("elastic_net", ElasticNet(alpha=alpha, l1_ratio=l1_ratio, max_iter=10000))
+  ])
+
+  model.fit(X, y)
+  y_pred = model.predict(X)
+
+  sorted_zip = sorted(zip(X, y_pred), key=lambda x: x[0])
+  X, y_pred = zip(*sorted_zip)
+
+  ax.plot(X, y_pred, line_style, label=f"a={alpha}")
+
+f, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(10,5))
+
+f.suptitle("Elastic Net")
+f.tight_layout()
+ax1.set_ylabel("y")
+
+plot_elastic_net(X, y, ax=ax1, degree=3, alpha=0.001, l1_ratio=0.75, line_style="C1--")
+plot_elastic_net(X, y, ax=ax1, degree=3, alpha=0.1, l1_ratio=0.75, line_style="C2:")
+plot_elastic_net(X, y, ax=ax1, degree=3, alpha=0.5, l1_ratio=0.75, line_style="C3-")
+
+plot_elastic_net(X, y, ax=ax2, degree=10, alpha=0.001, l1_ratio=0.25, line_style="C1--")
+plot_elastic_net(X, y, ax=ax2, degree=10, alpha=0.1, l1_ratio=0.25, line_style="C2:")
+plot_elastic_net(X, y, ax=ax2, degree=10, alpha=0.5, l1_ratio=0.25, line_style="C3-")
 
 for ax in (ax1, ax2):
   ax.scatter(X, y, s=10)

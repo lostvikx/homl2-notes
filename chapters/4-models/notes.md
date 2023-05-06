@@ -73,3 +73,11 @@ Ridge regression adds a penalty term that is proportional to the square of the m
 ### Lasso Regression
 Lasso regression, on the other hand, adds a penalty term that is proportional to the absolute value of the coefficients. This penalty term can set some of the coefficients to exactly zero, which makes Lasso regression particularly useful for feature selection when there are many variables in the data and you want to identify a smaller subset of the most important variables.
 
+### Elastic Net
+Elastic net is the combination of Ridge and Lasso regression. The regularization term is a simple mix of both terms, we decide on the l1 ratio.
+
+So, which one should you pick: plain linear, ridge, lasso, or perhaps elastic net? 
+
+It is almost always better to have some regularization, so avoid using plain linear regression. Ridge is a good default, but if you suspect there are only a few features that are useful, then use Lasso or Elastic Net, so that the weights of the useless features become zero. Also, Elastic Net is preferred over Lasso regression.
+
+## Early Stopping
