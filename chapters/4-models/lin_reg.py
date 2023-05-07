@@ -404,3 +404,58 @@ for ax in (ax1, ax2):
 
 plt.show()
 # %%
+np.random.seed(42)
+m = 100
+X = 6 * np.random.rand(m, 1) - 3
+noise = np.random.randn(m, 1)
+y = (0.5 * X**2) + (X) + 2 + noise
+# %%
+X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.5, random_state=42)
+
+preprocessor = Pipeline([
+  ("poly_features", PolynomialFeatures(degree=60, include_bias=False)),
+  ("std_scaler", StandardScaler())
+])
+
+X_train_tr = preprocessor.fit_transform(X_train)
+X_val_tr = preprocessor.transform(X_val)
+
+print(X_train_tr.shape, X_val_tr.shape)
+# %%
+# warm_start: continues to train the same model, instead of restarting from scratch
+sgd_reg = SGDRegressor(penalty=None, eta0=0.003, random_state=42)
+
+n_epochs = 500
+min_val_error = float("inf")
+best_epoch = None
+train_errors, val_errors = [], []
+
+for epoch in range(n_epochs):
+  sgd_reg.partial_fit(X_train_tr, y_train.ravel())
+
+  y_train_pred = sgd_reg.predict(X_train_tr)
+  y_val_pred = sgd_reg.predict(X_val_tr)
+
+  train_error = mean_squared_error(y_train, y_train_pred)
+  val_error = mean_squared_error(y_val, y_val_pred)
+
+  train_errors.append(train_error)
+  val_errors.append(val_error)
+
+  if (val_error < min_val_error):
+    min_val_error = val_error
+    best_epoch = epoch
+
+print(best_epoch)
+# %%
+plt.plot([0, n_epochs], [np.sqrt(min_val_error), np.sqrt(min_val_error)], "k:")  # best RMSE
+plt.plot(np.sqrt(train_errors), "C1--", label="Training Set")
+plt.plot(np.sqrt(val_errors), "C2-", label="Validation Set")
+plt.plot(best_epoch, np.sqrt(val_errors[best_epoch]), "C3o", markersize=5, label="Best Model")
+
+plt.title("Early Stopping Regularization")
+plt.xlabel("Epoch")
+plt.ylabel("RMSE")
+plt.legend()
+plt.tight_layout()
+plt.show()
