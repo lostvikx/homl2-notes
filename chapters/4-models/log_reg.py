@@ -145,3 +145,111 @@ plt.ylabel("Petal width (cm)")
 plt.axis([0, 7, 0, 3.5])
 plt.legend()
 plt.show()
+# %% [markdown]
+# # Batch Gradient Descent with Early Stopping
+# %%
+X = iris["data"][:, (2, 3)]
+y = iris["target"]
+# %%
+X_with_bias = np.c_[np.zeros((len(X), 1)), X]
+# %%
+test_ratio, val_ratio = 0.2, 0.2
+total_size = len(X_with_bias)
+
+test_size = int(total_size * test_ratio)
+val_size = int(total_size * val_ratio)
+train_size = total_size - test_size - val_size
+
+np.random.seed(42)
+rnd_idx = np.random.permutation(total_size)
+
+train_idx = rnd_idx[:train_size]
+test_idx = rnd_idx[train_size:-test_size]
+val_idx = rnd_idx[-test_size:]
+
+X_train = X_with_bias[train_idx]
+y_train = y[train_idx]
+
+X_test = X_with_bias[test_idx]
+y_test = y[test_idx]
+
+X_val = X_with_bias[val_idx]
+y_val = y[val_idx]
+
+print(X_train.shape, X_test.shape, X_val.shape)
+# %%
+def one_hot_encoder(y):
+  """
+  Returns a One Hot Encoded version of y
+  """
+  n_classes = y.max() + 1
+  m = len(y)
+  y_one_hot = np.zeros((m, n_classes))
+  y_one_hot[np.arange(m), y] = 1
+  return y_one_hot
+# %%
+y_train[:5]
+# %%
+one_hot_encoder(y_train[:5])
+# %%
+y_train_ohe = one_hot_encoder(y_train)
+y_test_ohe = one_hot_encoder(y_test)
+y_val_ohe = one_hot_encoder(y_val)
+# %%
+def softmax(logits):
+  exp = np.exp(logits)
+  exp_sum = np.sum(exp, axis=1, keepdims=True)
+  return exp / exp_sum
+# %%
+n_inputs = X_train.shape[1]  # n_features + bias (3)
+n_outputs = len(np.unique(y_train))  # n_classes (3)
+
+print(n_inputs, n_outputs)
+# %%
+eta = 0.03
+n_iter = 5000
+m = len(X_train)
+epsilon = 1e-7
+best_loss = float("inf")
+alpha = 0.01  # regularization hyperparameter
+
+np.random.seed(42)
+theta = np.random.randn(n_inputs, n_outputs)
+
+for i in range(n_iter):
+  logits = X_train.dot(theta)
+  y_proba = softmax(logits)
+
+  xentropy_loss = -np.mean(np.sum(y_train_ohe * np.log(y_proba + epsilon), axis=1))
+  l2_loss = 1/2 * np.sum(np.square(theta[1:]))
+  loss = xentropy_loss + (alpha * l2_loss)
+
+  if ((i+1) % 500 == 0) or (i == 0):
+    print(i+1, loss)
+
+  error = y_proba - y_train_ohe
+  gradient = 1/m * X_train.T.dot(error)
+  theta = theta - eta * gradient
+
+  if loss < best_loss:
+    best_loss = loss
+  else:
+    print(i - 1, best_loss)
+    print(i, loss, "Early Stopping!")
+    break
+# %%
+theta
+# %%
+logits = X_val.dot(theta)
+y_proba = softmax(logits)
+y_pred = np.argmax(y_proba, axis=1)
+
+accuracy_score = np.mean(y_pred == y_val)
+print(f"Accuracy: {accuracy_score * 100:.2f}%")
+# %%
+logits = X_test.dot(theta)
+y_proba = softmax(logits)
+y_pred = np.argmax(y_proba, axis=1)
+
+accuracy_score = np.mean(y_pred == y_test)
+print(f"Accuracy: {accuracy_score * 100:.2f}%")
