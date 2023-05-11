@@ -1,7 +1,6 @@
 # %%
 import numpy as np
 from matplotlib import pyplot as plt
-
 # %%
 from sklearn import datasets
 
@@ -111,3 +110,38 @@ plt.axis([2.5, 7, 0.8, 2.7])
 plt.legend()
 plt.show()
 # %%
+X = iris["data"][:, (2, 3)]  # (petal length, petal width)
+y = iris["target"]
+# %%
+softmax_reg = LogisticRegression(multi_class="multinomial", solver="lbfgs", C=10)
+softmax_reg.fit(X, y)
+# %%
+softmax_reg.predict([[5, 2]])  # Iris with petal length 5cm and petal width 2cm.
+# %%
+softmax_reg.predict_proba([[5, 2]])
+# %%
+plt.figure(figsize=(10, 5))
+
+plt.scatter(X[y == 0, 0], X[y == 0, 1], label="Iris Setosa")
+plt.scatter(X[y == 1, 0], X[y == 1, 1], label="Iris Versicolor")
+plt.scatter(X[y == 2, 0], X[y == 2, 1], label="Iris Virginica")
+
+petal_lens = np.linspace(0, 8, 500).reshape(500, 1)
+petal_wids = np.linspace(0, 3.5, 200).reshape(200, 1)
+
+x0, x1 = np.meshgrid(petal_lens, petal_wids)
+
+X_new = np.c_[x0.ravel(), x1.ravel()]
+y_proba = softmax_reg.predict_proba(X_new)
+y_pred = softmax_reg.predict(X_new)
+
+zz = y_proba[:, 1].reshape(x0.shape)
+
+contour = plt.contour(x0, x1, zz)
+plt.clabel(contour)
+
+plt.xlabel("Petal length (cm)")
+plt.ylabel("Petal width (cm)")
+plt.axis([0, 7, 0, 3.5])
+plt.legend()
+plt.show()
