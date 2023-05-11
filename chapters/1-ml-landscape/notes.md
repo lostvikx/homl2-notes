@@ -48,7 +48,7 @@ Examples of ML Applications:
 4. Training data should contain enough relevant features and not too many irrelevent features. Feature engineering.
 5. Overfitting and underfitting the training data.
 
-# Exercise:
+# Exercise
 1. Machine learning is the science of programming computer systems to provide outputs by learning from data instead of being programmed explicitly.
 2. If a problem is too difficult to explicitly program a computer to perform the task, eg. handwriting & speech recognition, customer segmentation by clustering, and predicting using regression.
 3. A labeled training set is a dataset that includes the desired solutions that we would like our ML algorithm to output.

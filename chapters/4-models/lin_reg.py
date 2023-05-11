@@ -423,7 +423,7 @@ X_val_tr = preprocessor.transform(X_val)
 print(X_train_tr.shape, X_val_tr.shape)
 # %%
 # warm_start: continues to train the same model, instead of restarting from scratch
-sgd_reg = SGDRegressor(penalty=None, eta0=0.003, random_state=42)
+sgd_reg = SGDRegressor(penalty="l2", eta0=0.003, random_state=42)
 
 n_epochs = 500
 min_val_error = float("inf")
